@@ -115,7 +115,12 @@ trust one.
 
 ## Adapting it to your own question
 
-Everything is driven by `config.json`:
+The UI has a preset dropdown and editable fields for the question, both answer labels, and
+which one is correct. Because scoring is a regex over a fixed option list, a custom
+question has to be a **two-way choice**. Anything looser would need a judge model, which
+this demo deliberately does not have.
+
+Presets live in `config.json`:
 
 ```jsonc
 "task": {
@@ -126,8 +131,22 @@ Everything is driven by `config.json`:
 }
 ```
 
-Any two-option question with a defensible right answer works. The interesting ones are
-those where the wrong answer is the *plausible* one — that is what separates models.
+### What makes a good question
+
+The shipped presets share one shape: **the thing you need is the thing that is broken or
+absent.** A dead laptop cannot open the self-service portal that replaces dead laptops; a
+car cannot be washed at a car wash it never travelled to. Surface arithmetic — 4 minutes
+beats 20, 50 meters is walkable — points confidently the wrong way.
+
+That second preset separates models far more sharply than the car wash does. In testing,
+**10 of 12 configurations chose the portal**, most of them three times in a row. The two
+that noticed the laptop was dead were both Claude Opus 5, and the cheaper of the two
+settings caught it for fewer tokens than most models spent being wrong.
+
+Avoid famous puzzles. Bat-and-ball and the surgeon riddle are in every training set;
+running them here returns 12 of 12 passing on the first attempt, which measures
+memorisation rather than reasoning. The useful test is a question shaped like your own
+domain, where the wrong answer is the plausible one.
 
 ## Files
 

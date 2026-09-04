@@ -23,25 +23,11 @@
       "why": "The car has to physically be at the car wash."
     },
     {
-      "name": "Bat and ball",
-      "question": "A bat and a ball cost $1.10 in total. The bat costs $1.00 more than the ball. Does the ball cost 10 cents or 5 cents?",
-      "options": ["10 CENTS", "5 CENTS"],
-      "correct": "5 CENTS",
-      "why": "If the ball were 10c the bat would be $1.10, totalling $1.20."
-    },
-    {
-      "name": "Drying shirts",
-      "question": "5 shirts laid out in the sun take 5 hours to dry. Laid out the same way, do 30 shirts take 5 hours or 30 hours?",
-      "options": ["5 HOURS", "30 HOURS"],
-      "correct": "5 HOURS",
-      "why": "They dry in parallel, not one after another."
-    },
-    {
-      "name": "Surgeon riddle",
-      "question": "A father and son are in a crash. The son needs surgery. The surgeon says 'I cannot operate, he is my son.' Is this impossible, or is the surgeon his mother?",
-      "options": ["IMPOSSIBLE", "HIS MOTHER"],
-      "correct": "HIS MOTHER",
-      "why": "The surgeon is the boy's mother."
+      "name": "Dead laptop (IT)",
+      "question": "Your work laptop is dead \u2014 it won't power on. You need to order a replacement. The self-service portal takes about 4 minutes. The service desk queue averages 20 minutes. Do you use the portal or call the service desk?",
+      "options": ["PORTAL", "SERVICE DESK"],
+      "correct": "SERVICE DESK",
+      "why": "The self-service portal needs a working laptop \u2014 the one that is dead."
     }
   ],
 
