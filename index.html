@@ -172,7 +172,15 @@ async function boot() {
 /** Fill the form from a preset. `fallback` covers a config with no presets. */
 function loadPreset(index, fallback) {
   const p = (index === 'custom') ? null : (PRESETS[index] || fallback);
-  if (!p) { $('key').textContent = 'Type a question and two possible answers.'; return; }
+  if (!p) {
+    // Custom means start from nothing, not from whatever the last preset left behind.
+    $('q').value = $('optA').value = $('optB').value = '';
+    $('correct').innerHTML = '';
+    autosize();
+    $('key').textContent = 'Type a question and two possible answers.';
+    $('q').focus();
+    return;
+  }
   $('q').value = p.question;
   $('optA').value = p.options[0];
   $('optB').value = p.options[1];
