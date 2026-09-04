@@ -1,0 +1,40 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "accountName": {
+      "type": "string",
+      "metadata": { "description": "Name of the Azure AI Foundry (AIServices) account." }
+    },
+    "deploymentName": { "type": "string" },
+    "modelName": { "type": "string" },
+    "modelVersion": { "type": "string" },
+    "capacity": { "type": "int", "defaultValue": 50 },
+    "industry": { "type": "string", "defaultValue": "technology" },
+    "organizationName": { "type": "string" },
+    "countryCode": { "type": "string", "defaultValue": "US" }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.CognitiveServices/accounts/deployments",
+      "apiVersion": "2026-05-01",
+      "name": "[format('{0}/{1}', parameters('accountName'), parameters('deploymentName'))]",
+      "sku": {
+        "name": "GlobalStandard",
+        "capacity": "[parameters('capacity')]"
+      },
+      "properties": {
+        "model": {
+          "format": "Anthropic",
+          "name": "[parameters('modelName')]",
+          "version": "[parameters('modelVersion')]"
+        },
+        "modelProviderData": {
+          "industry": "[parameters('industry')]",
+          "organizationName": "[parameters('organizationName')]",
+          "countryCode": "[parameters('countryCode')]"
+        }
+      }
+    }
+  ]
+}

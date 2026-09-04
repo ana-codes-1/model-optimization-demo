@@ -1,0 +1,274 @@
+"""Model optimization demo: one question, twelve deployments, pass/fail + tokens.
+
+Stdlib only. Run:  python server.py   ->  http://localhost:8000
+"""
+
+import json
+import os
+import re
+import subprocess
+import threading
+import time
+import urllib.error
+import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import urlparse
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
+RESULTS_DIR = os.path.join(ROOT, "results")
+LAST_RUN = os.path.join(RESULTS_DIR, "last-run.json")
+SAMPLE_RUN = os.path.join(RESULTS_DIR, "sample-run.json")
+
+with open(os.path.join(ROOT, "config.json"), encoding="utf-8") as fh:
+    CFG = json.load(fh)
+
+
+def build_prompt(task):
+    """Force a tagged final line so scoring stays deterministic for any question."""
+    tags = " or ".join("ANSWER: " + o for o in task["options"])
+    return (task["question"] + "\n\n"
+            + "Answer in one or two sentences, then end with a final line exactly: "
+            + tags)
+
+_token = {"value": None, "fetched": 0.0}
+_token_lock = threading.Lock()
+
+
+def get_token(force=False):
+    """Entra token. The resource has disableLocalAuth=true, so there is no API key."""
+    with _token_lock:
+        stale = time.time() - _token["fetched"] > 1800
+        if force or stale or not _token["value"]:
+            proc = subprocess.run(
+                ["az", "account", "get-access-token",
+                 "--resource", "https://cognitiveservices.azure.com",
+                 "--query", "accessToken", "-o", "tsv"],
+                capture_output=True, text=True, shell=True,
+            )
+            value = proc.stdout.strip()
+            if not value:
+                raise RuntimeError("az token fetch failed: " + proc.stderr.strip()[:200])
+            _token["value"] = value
+            _token["fetched"] = time.time()
+        return _token["value"]
+
+
+def _post(url, body, extra_headers=None, retry_on_401=True):
+    headers = {"Authorization": "Bearer " + get_token(), "Content-Type": "application/json"}
+    if extra_headers:
+        headers.update(extra_headers)
+    req = urllib.request.Request(url, json.dumps(body).encode(), headers, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=CFG["timeout_seconds"]) as resp:
+            return json.loads(resp.read().decode())
+    except urllib.error.HTTPError as err:
+        if err.code == 401 and retry_on_401:
+            get_token(force=True)
+            return _post(url, body, extra_headers, retry_on_401=False)
+        raise RuntimeError("HTTP %s: %s" % (err.code, err.read().decode()[:200]))
+
+
+def call_openai(entry, prompt):
+    url = "%s/openai/deployments/%s/chat/completions?api-version=%s" % (
+        CFG["endpoint"], entry["deployment"], CFG["openai_api_version"])
+    body = {
+        "messages": [{"role": "user", "content": prompt}],
+        "max_completion_tokens": CFG["openai_max_completion_tokens"],
+    }
+    body.update(entry.get("params", {}))
+    data = _post(url, body)
+    usage = data.get("usage", {})
+    return {
+        "text": (data["choices"][0]["message"].get("content") or "").strip(),
+        "tokens": usage.get("total_tokens", 0),
+        "thinking": usage.get("completion_tokens_details", {}).get("reasoning_tokens", 0),
+    }
+
+
+def call_anthropic(entry, prompt):
+    url = "%s/anthropic/v1/messages?api-version=%s" % (
+        CFG["endpoint"], CFG["anthropic_api_version"])
+    body = {
+        "model": entry["deployment"],
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": CFG["anthropic_max_tokens"],
+    }
+    body.update(entry.get("params", {}))
+    data = _post(url, body, {"anthropic-version": CFG["anthropic_version_header"]})
+    usage = data.get("usage", {})
+    # When thinking is on, a `thinking` block precedes the `text` block.
+    text = " ".join(b.get("text", "") for b in data.get("content", [])
+                    if b.get("type") == "text").strip()
+    return {
+        "text": text,
+        "tokens": usage.get("input_tokens", 0) + usage.get("output_tokens", 0),
+        "thinking": usage.get("output_tokens_details", {}).get("thinking_tokens", 0),
+    }
+
+
+def score(text, task):
+    """Deterministic. Prefer the tagged final line; fall back to first bare mention."""
+    text = text or ""
+    options = task["options"]
+    tag = re.compile(r"ANSWER:\s*\**\s*(" + "|".join(re.escape(o) for o in options) + r")",
+                     re.I)
+    tagged = tag.findall(text)
+    if tagged:
+        verdict = tagged[-1].upper()
+    else:
+        # No tag: take whichever option is mentioned first. CFG["aliases"] lets a known
+        # option carry its inflections ("driving") without matching "driveway".
+        best = None
+        for opt in options:
+            words = CFG.get("aliases", {}).get(opt.upper(), [opt])
+            pat = re.compile(r"\b(" + "|".join(re.escape(w) for w in words) + r")\b", re.I)
+            hit = pat.search(text)
+            if hit and (best is None or hit.start() < best[0]):
+                best = (hit.start(), opt)
+        if not best:
+            return False, "NONE"
+        verdict = best[1].upper()
+    return verdict == task["correct"].upper(), verdict
+
+
+def run_contestant(entry, task):
+    """Pass on the first attempt and stop; otherwise retry up to max_attempts."""
+    started = time.time()
+    prompt = build_prompt(task)
+    total_tokens = total_thinking = 0
+    transcript = []
+    passed = False
+
+    for attempt in range(1, CFG["max_attempts"] + 1):
+        try:
+            caller = call_anthropic if entry["vendor"] == "anthropic" else call_openai
+            res = caller(entry, prompt)
+            ok, verdict = score(res["text"], task)
+            total_tokens += res["tokens"]
+            total_thinking += res["thinking"]
+            transcript.append({"attempt": attempt, "verdict": verdict,
+                               "tokens": res["tokens"], "text": res["text"]})
+        except Exception as exc:  # timeout, 429, anything - counts as a failed attempt
+            ok = False
+            transcript.append({"attempt": attempt, "verdict": "ERROR",
+                               "tokens": 0, "text": str(exc)[:400]})
+        if ok:
+            passed = True
+            break
+
+    return {
+        "id": entry["id"], "label": entry["label"], "badge": entry["badge"],
+        "vendor": entry["vendor"], "passed": passed,
+        "attempts": len(transcript), "tokens": total_tokens,
+        "thinking": total_thinking, "seconds": round(time.time() - started, 1),
+        "transcript": transcript,
+    }
+
+
+def run_all(emit, task):
+    """Fan out all contestants at once; emit each result the moment it lands."""
+    results = []
+    with ThreadPoolExecutor(max_workers=len(CFG["roster"])) as pool:
+        futures = {pool.submit(run_contestant, e, task): e for e in CFG["roster"]}
+        for fut in as_completed(futures):
+            entry = futures[fut]
+            try:
+                item = fut.result()
+            except Exception as exc:
+                item = {"id": entry["id"], "label": entry["label"],
+                        "badge": entry["badge"], "vendor": entry["vendor"],
+                        "passed": False, "attempts": 0, "tokens": 0,
+                        "thinking": 0, "seconds": 0,
+                        "transcript": [{"attempt": 0, "verdict": "ERROR",
+                                        "tokens": 0, "text": str(exc)[:400]}]}
+            results.append(item)
+            emit("result", item)
+
+    order = {e["id"]: i for i, e in enumerate(CFG["roster"])}
+    results.sort(key=lambda r: order[r["id"]])
+    payload = {"finished_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+               "task": task, "results": results}
+    os.makedirs(RESULTS_DIR, exist_ok=True)
+    with open(LAST_RUN, "w", encoding="utf-8") as fh:
+        json.dump(payload, fh, indent=2)
+    stamp = time.strftime("run-%Y%m%d-%H%M%S.json")
+    with open(os.path.join(RESULTS_DIR, stamp), "w", encoding="utf-8") as fh:
+        json.dump(payload, fh, indent=2)
+    emit("done", payload)
+
+
+def task_from_query(query):
+    """Kept trivial on purpose: the demo always runs the task defined in config.json."""
+    return dict(CFG["task"])
+
+
+
+class Handler(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+
+    def log_message(self, fmt, *args):
+        pass
+
+    def _send(self, code, body, ctype):
+        raw = body if isinstance(body, bytes) else body.encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(raw)))
+        self.end_headers()
+        self.wfile.write(raw)
+
+    def do_GET(self):
+        path = self.path.split("?")[0]
+
+        if path in ("/", "/index.html"):
+            with open(os.path.join(ROOT, "index.html"), "rb") as fh:
+                self._send(200, fh.read(), "text/html; charset=utf-8")
+
+        elif path == "/config":
+            self._send(200, json.dumps({"task": CFG["task"], "roster": CFG["roster"],
+                                        "max_attempts": CFG["max_attempts"]}),
+                       "application/json")
+
+        elif path == "/replay":
+            # Fall back to the committed fixture so a fresh clone can replay offline.
+            source = LAST_RUN if os.path.exists(LAST_RUN) else SAMPLE_RUN
+            if not os.path.exists(source):
+                self._send(404, json.dumps({"error": "no saved run yet"}), "application/json")
+                return
+            with open(source, "rb") as fh:
+                self._send(200, fh.read(), "application/json")
+
+        elif path == "/run":
+            task = task_from_query(urlparse(self.path).query)
+
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Connection", "close")
+            self.end_headers()
+
+            def emit(event, data):
+                chunk = "event: %s\ndata: %s\n\n" % (event, json.dumps(data))
+                self.wfile.write(chunk.encode("utf-8"))
+                self.wfile.flush()
+
+            try:
+                run_all(emit, task)
+            except Exception as exc:
+                try:
+                    emit("fatal", {"error": str(exc)[:400]})
+                except Exception:
+                    pass
+            self.close_connection = True
+
+        else:
+            self._send(404, "not found", "text/plain")
+
+
+if __name__ == "__main__":
+    print("Checking Azure credentials...")
+    get_token()
+    print("Token OK. %d contestants ready." % len(CFG["roster"]))
+    print("Open http://localhost:8000")
+    ThreadingHTTPServer(("127.0.0.1", 8000), Handler).serve_forever()

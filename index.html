@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Model Optimization Demo</title>
+<style>
+  :root {
+    /* Warm beige paper, Microsoft brand colours as the only accents. */
+    --bg: #F1EADD; --panel: #FBF7EF; --track: #E4DAC7; --line: #D8CCB6;
+    --text: #262320; --dim: #7C7264;
+    --pass: #7FBA00;   /* MS green  */
+    --fail: #F25022;   /* MS orange-red */
+    --blue: #0067B8;   /* MS blue   */
+    --gold: #FFB900;   /* MS yellow */
+    --on-bar: #1E1B17;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.5 "Segoe UI", system-ui, sans-serif;
+    padding: 28px 36px 60px;
+  }
+  header { border-bottom: 1px solid var(--line); padding-bottom: 20px; margin-bottom: 24px; }
+  h1 { font-size: 13px; font-weight: 600; color: var(--dim); text-transform: uppercase;
+       letter-spacing: .12em; margin: 0 0 12px; }
+
+  .question {
+    font-size: 24px; font-weight: 600; line-height: 1.3; max-width: 1000px;
+    padding-left: 14px; border-left: 3px solid var(--blue);
+  }
+  .key { margin-top: 10px; font-size: 15px; color: var(--dim); padding-left: 17px; }
+  .key b { color: #5C8600; }
+  .controls { margin-top: 20px; display: flex; gap: 12px; align-items: center; }
+  #status { color: var(--dim); font-size: 15px; }
+  button {
+    font: 600 16px "Segoe UI", sans-serif; padding: 11px 26px; border-radius: 7px;
+    border: 1px solid var(--line); background: var(--panel); color: var(--text); cursor: pointer;
+  }
+  button:hover:not(:disabled) { background: #fff; }
+  button.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+  button.primary:hover:not(:disabled) { background: #00559B; }
+  button:disabled { opacity: .45; cursor: default; }
+
+  .row {
+    display: grid; grid-template-columns: 220px 108px 1fr 250px;
+    align-items: center; gap: 14px; padding: 7px 10px;
+    border-radius: 7px; cursor: pointer;
+  }
+  .row:hover { background: #E7DFCE; }
+  .row.best { box-shadow: inset 0 0 0 2px var(--gold); }
+  .name { font-size: 18px; font-weight: 600; }
+  .badge {
+    font-size: 12px; color: var(--dim); border: 1px solid var(--line); background: var(--panel);
+    border-radius: 20px; padding: 3px 10px; text-align: center; white-space: nowrap;
+  }
+  .track { background: var(--track); border-radius: 5px; height: 30px; overflow: hidden; }
+  .bar { height: 100%; width: 0; border-radius: 5px; transition: width .45s ease;
+         display: flex; align-items: center; padding-left: 12px;
+         font-size: 14px; font-weight: 700; letter-spacing: .04em; color: var(--on-bar); }
+  .bar.pass { background: var(--pass); }
+  .bar.fail { background: var(--fail); }
+  .bar.wait { background: #CFC3AC; animation: pulse 1.1s ease-in-out infinite; width: 22%; }
+  @keyframes pulse { 0%,100% { opacity: .45 } 50% { opacity: .9 } }
+  .meta { font-size: 15px; color: var(--dim); text-align: right; font-variant-numeric: tabular-nums; }
+  .meta .warn { color: #B37A00; font-weight: 600; }
+  .sep { height: 14px; }
+  .detail {
+    display: none; margin: 2px 0 10px 232px; padding: 12px 16px; background: var(--panel);
+    border-left: 3px solid var(--blue); border-radius: 0 6px 6px 0;
+    font-size: 14px; color: #3D372F; white-space: pre-wrap; max-width: 1000px;
+  }
+  .detail.open { display: block; }
+  .detail .att { color: var(--dim); font-weight: 600; }
+  footer { margin-top: 26px; padding-top: 16px; border-top: 1px solid var(--line);
+           color: var(--dim); font-size: 14px; }
+  footer b { color: var(--text); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Model optimization &mdash; one question, twelve deployments</h1>
+  <div class="question" id="q">&nbsp;</div>
+  <div class="key" id="key">&nbsp;</div>
+  <div class="controls">
+    <button class="primary" id="run">Run all 12</button>
+    <button id="replay">Replay last</button>
+    <span id="status"></span>
+  </div>
+</header>
+
+<div id="chart"></div>
+
+<footer>
+  Bar length = total tokens spent, including retries. Green = correct, red = wrong.
+  A model gets up to <b id="ma">3</b> attempts; passing on the first stops the clock.
+  Gold ring = best value. Click any row to read what the model said.
+</footer>
+
+<script>
+let ROSTER = [], MAX_TOKENS = 1, RESULTS = {};
+
+function el(tag, cls, txt) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (txt !== undefined) n.textContent = txt;
+  return n;
+}
+
+async function boot() {
+  const cfg = await (await fetch('/config')).json();
+  ROSTER = cfg.roster;
+  document.getElementById('q').textContent = cfg.task.question;
+  document.getElementById('key').innerHTML =
+    'Correct answer: <b>' + cfg.task.correct + '</b> &mdash; ' + cfg.task.why;
+  document.getElementById('ma').textContent = cfg.max_attempts;
+  drawSkeleton();
+}
+
+function drawSkeleton() {
+  const chart = document.getElementById('chart');
+  chart.innerHTML = '';
+  ROSTER.forEach((m, i) => {
+    // Blank line between model pairs so the low/high ladder reads vertically.
+    if (i > 0 && i % 2 === 0) chart.appendChild(el('div', 'sep'));
+
+    const row = el('div', 'row');
+    row.id = 'row-' + m.id;
+    row.appendChild(el('div', 'name', m.label));
+    row.appendChild(el('div', 'badge', m.badge));
+
+    const track = el('div', 'track');
+    track.appendChild(el('div', 'bar wait'));
+    row.appendChild(track);
+    row.appendChild(el('div', 'meta', 'waiting'));
+
+    const detail = el('div', 'detail');
+    detail.id = 'detail-' + m.id;
+    row.onclick = () => detail.classList.toggle('open');
+
+    chart.appendChild(row);
+    chart.appendChild(detail);
+  });
+}
+
+function render(r) {
+  RESULTS[r.id] = r;
+  MAX_TOKENS = Math.max(MAX_TOKENS, ...Object.values(RESULTS).map(x => x.tokens));
+
+  Object.values(RESULTS).forEach(res => {
+    const row = document.getElementById('row-' + res.id);
+    const bar = row.querySelector('.bar');
+    bar.className = 'bar ' + (res.passed ? 'pass' : 'fail');
+    bar.style.width = Math.max(6, (res.tokens / MAX_TOKENS) * 100) + '%';
+    bar.textContent = res.passed ? 'PASS' : 'FAIL';
+
+    const tries = res.attempts > 1
+      ? '<span class="warn">' + res.attempts + ' tries</span> &middot; ' : '';
+    row.querySelector('.meta').innerHTML =
+      tries + res.tokens.toLocaleString() + ' tokens &middot; ' + res.seconds + 's';
+  });
+
+  const d = document.getElementById('detail-' + r.id);
+  d.innerHTML = '';
+  r.transcript.forEach(t => {
+    d.appendChild(el('div', 'att',
+      'Attempt ' + t.attempt + ' \u2014 ' + t.verdict + ' (' + t.tokens + ' tokens)'));
+    d.appendChild(el('div', '', t.text || '(empty response)'));
+    d.appendChild(el('div', '', ' '));
+  });
+}
+
+function markBest() {
+  document.querySelectorAll('.row.best').forEach(n => n.classList.remove('best'));
+  const winners = Object.values(RESULTS).filter(r => r.passed);
+  if (!winners.length) return;
+  const best = winners.reduce((a, b) => (b.tokens < a.tokens ? b : a));
+  document.getElementById('row-' + best.id).classList.add('best');
+}
+
+function start() {
+  RESULTS = {}; MAX_TOKENS = 1;
+  drawSkeleton();
+  document.getElementById('run').disabled = true;
+  document.getElementById('replay').disabled = true;
+  const status = document.getElementById('status');
+  const t0 = Date.now();
+  let n = 0;
+  status.textContent = 'Running 12 models in parallel\u2026';
+
+  const es = new EventSource('/run');
+  es.addEventListener('result', e => {
+    render(JSON.parse(e.data));
+    n++;
+    status.textContent = n + ' of ' + ROSTER.length + ' done \u2026';
+  });
+  es.addEventListener('done', () => {
+    markBest();
+    const passed = Object.values(RESULTS).filter(r => r.passed).length;
+    status.textContent = passed + ' of ' + ROSTER.length + ' correct \u00b7 '
+      + ((Date.now() - t0) / 1000).toFixed(1) + 's';
+    es.close();
+    document.getElementById('run').disabled = false;
+    document.getElementById('replay').disabled = false;
+  });
+  es.addEventListener('fatal', e => {
+    status.textContent = 'Error: ' + JSON.parse(e.data).error;
+    es.close();
+    document.getElementById('run').disabled = false;
+    document.getElementById('replay').disabled = false;
+  });
+}
+
+async function replay() {
+  const res = await fetch('/replay');
+  if (!res.ok) { document.getElementById('status').textContent = 'No saved run yet.'; return; }
+  const data = await res.json();
+  RESULTS = {}; MAX_TOKENS = 1;
+  drawSkeleton();
+  data.results.forEach(render);
+  markBest();
+  const passed = data.results.filter(r => r.passed).length;
+  document.getElementById('status').textContent =
+    passed + ' of ' + data.results.length + ' correct \u00b7 replay of ' + data.finished_at;
+}
+
+document.getElementById('run').onclick = start;
+document.getElementById('replay').onclick = replay;
+boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,338 @@
+{
+  "finished_at": "2026-09-03 14:47:30",
+  "task": {
+    "question": "I want to wash my car. The car wash is 50 meters away. Should I walk or drive?",
+    "options": [
+      "WALK",
+      "DRIVE"
+    ],
+    "correct": "DRIVE",
+    "why": "The car has to physically be at the car wash."
+  },
+  "results": [
+    {
+      "id": "opus-low",
+      "label": "Claude Opus 5",
+      "badge": "effort low",
+      "vendor": "anthropic",
+      "passed": true,
+      "attempts": 1,
+      "tokens": 153,
+      "thinking": 16,
+      "seconds": 14.0,
+      "transcript": [
+        {
+          "attempt": 1,
+          "verdict": "DRIVE",
+          "tokens": 153,
+          "text": "You need the car itself at the car wash, so walking there would leave it behind \u2014 just drive the 50 meters (or push/roll it if you prefer).\n\nANSWER: DRIVE"
+        }
+      ]
+    },
+    {
+      "id": "opus-high",
+      "label": "Claude Opus 5",
+      "badge": "effort max",
+      "vendor": "anthropic",
+      "passed": true,
+      "attempts": 1,
+      "tokens": 279,
+      "thinking": 122,
+      "seconds": 16.0,
+      "transcript": [
+        {
+          "attempt": 1,
+          "verdict": "DRIVE",
+          "tokens": 279,
+          "text": "The car itself has to get to the car wash, so walking there would leave the thing you're trying to wash sitting at home. Drive it over \u2014 50 meters is a short trip, but it's the car that needs to make it.\n\nANSWER: DRIVE"
+        }
+      ]
+    },
+    {
+      "id": "haiku-low",
+      "label": "Claude Haiku 4.5",
+      "badge": "thinking off",
+      "vendor": "anthropic",
+      "passed": false,
+      "attempts": 3,
+      "tokens": 360,
+      "thinking": 0,
+      "seconds": 16.4,
+      "transcript": [
+        {
+          "attempt": 1,
+          "verdict": "WALK",
+          "tokens": 135,
+          "text": "Walking 50 meters (about a 1-minute walk) makes more sense than driving, since the distance is very short and driving would use fuel, create emissions, and take more time when accounting for starting the car and parking. Plus, you'd arrive at the car wash without having driven your car there, which defeats the purpose.\n\nANSWER: WALK"
+        },
+        {
+          "attempt": 2,
+          "verdict": "WALK",
+          "tokens": 119,
+          "text": "Walking 50 meters (about a 1-minute walk) is more practical and efficient than driving such a short distance, which would involve starting the car, driving, and parking. Plus, you'll save fuel and reduce emissions for such a minimal distance.\n\nANSWER: WALK"
+        },
+        {
+          "attempt": 3,
+          "verdict": "WALK",
+          "tokens": 106,
+          "text": "Walking would be more practical since the car wash is only 50 meters away\u2014driving such a short distance uses unnecessary fuel and emissions. Plus, you'd need to drive back home afterward anyway.\n\nANSWER: WALK"
+        }
+      ]
+    },
+    {
+      "id": "haiku-high",
+      "label": "Claude Haiku 4.5",
+      "badge": "thinking 4k",
+      "vendor": "anthropic",
+      "passed": false,
+      "attempts": 3,
+      "tokens": 954,
+      "thinking": 531,
+      "seconds": 22.4,
+      "transcript": [
+        {
+          "attempt": 1,
+          "verdict": "WALK",
+          "tokens": 354,
+          "text": "Walking is the obvious choice here. At only 50 meters away, you'll get there faster on foot than you would driving, and you'll avoid using gas for such a short trip.\n\nANSWER: WALK"
+        },
+        {
+          "attempt": 2,
+          "verdict": "WALK",
+          "tokens": 300,
+          "text": "At only 50 meters away, walking is much more practical and efficient than driving. It would take less than a minute to walk, while driving would involve unnecessary fuel consumption for such a trivial distance.\n\nANSWER: WALK"
+        },
+        {
+          "attempt": 3,
+          "verdict": "WALK",
+          "tokens": 300,
+          "text": "50 meters is an extremely short distance\u2014roughly a one-minute walk\u2014so walking makes much more sense than driving. You'd waste time and fuel for such a brief trip, and walking is better for the environment and your health.\n\nANSWER: WALK"
+        }
+      ]
+    },
+    {
+      "id": "nano-low",
+      "label": "GPT-5.4 nano",
+      "badge": "effort low",
+      "vendor": "openai",
+      "passed": false,
+      "attempts": 3,
+      "tokens": 349,
+      "thinking": 70,
+      "seconds": 18.7,
+      "transcript": [
+        {
+          "attempt": 1,
+          "verdict": "WALK",
+          "tokens": 117,
+          "text": "Walking is best for such a short distance and avoids extra fuel or emissions. It will likely be quicker than driving around for parking.  \nANSWER: WALK"
+        },
+        {
+          "attempt": 2,
+          "verdict": "WALK",
+          "tokens": 116,
+          "text": "Walking is usually better for a car wash this close because it avoids fuel use and parking hassles. So you can just walk over.  \nANSWER: WALK"
+        },
+        {
+          "attempt": 3,
+          "verdict": "WALK",
+          "tokens": 116,
+          "text": "Walking is best because 50 meters is a very short distance and you\u2019ll likely reach the car wash faster without dealing with driving friction and parking.  \nANSWER: WALK"
+        }
+      ]
+    },
+    {
+      "id": "nano-high",
+      "label": "GPT-5.4 nano",
+      "badge": "effort high",
+      "vendor": "openai",
+      "passed": false,
+      "attempts": 3,
+      "tokens": 389,
+      "thinking": 110,
+      "seconds": 18.3,
+      "transcript": [
+        {
+          "attempt": 1,
+          "verdict": "WALK",
+          "tokens": 125,
+          "text": "Since the car wash is only about 50 meters away, it\u2019s typically quicker and simpler to walk rather than drive.  \nANSWER: WALK"
+        },
+        {
+          "attempt": 2,
+          "verdict": "WALK",
+          "tokens": 127,
+          "text": "Since the car wash is only 50 meters away, it\u2019s quicker and more practical to walk rather than drive and park.  \nANSWER: WALK"
+        },
+        {
+          "attempt": 3,
+          "verdict": "WALK",
+          "tokens": 137,
+          "text": "Since the car wash is only about 50 meters away, walking is likely the simplest and quickest option without needing to start the car for such a short trip.  \nANSWER: WALK"
+        }
+      ]
+    },
+    {
+      "id": "mini-low",
+      "label": "GPT-5.4 mini",
+      "badge": "effort low",
+      "vendor": "openai",
+      "passed": false,
+      "attempts": 3,
+      "tokens": 380,
+      "thinking": 125,
+      "seconds": 16.5,
+      "transcript": [
+        {
+          "attempt": 1,
+          "verdict": "WALK",
+          "tokens": 124,
+          "text": "It\u2019s only 50 meters away, so walking is the simpler choice.  \nANSWER: WALK"
+        },
+        {
+          "attempt": 2,
+          "verdict": "WALK",
+          "tokens": 147,
+          "text": "It\u2019s only 50 meters away, so walking is the simpler choice. You\u2019ll save time starting the car just for that short distance.\n\nANSWER: WALK"
+        },
+        {
+          "attempt": 3,
+          "verdict": "WALK",
+          "tokens": 109,
+          "text": "It\u2019s only 50 meters away, so walking is the better choice.  \nANSWER: WALK"
+        }
+      ]
+    },
+    {
+      "id": "mini-high",
+      "label": "GPT-5.4 mini",
+      "badge": "effort high",
+      "vendor": "openai",
+      "passed": true,
+      "attempts": 3,
+      "tokens": 796,
+      "thinking": 526,
+      "seconds": 19.2,
+      "transcript": [
+        {
+          "attempt": 1,
+          "verdict": "WALK",
+          "tokens": 229,
+          "text": "It\u2019s only 50 meters away, so walking is the simplest choice. It\u2019ll take about the same effort as driving without the hassle of moving the car.\n\nANSWER: WALK"
+        },
+        {
+          "attempt": 2,
+          "verdict": "WALK",
+          "tokens": 227,
+          "text": "Walk\u2014it\u2019s only 50 meters, so it\u2019s quicker and avoids moving the car unnecessarily.  \nANSWER: WALK"
+        },
+        {
+          "attempt": 3,
+          "verdict": "DRIVE",
+          "tokens": 340,
+          "text": "Drive \u2014 you\u2019ll need the car at the car wash, even if it\u2019s only 50 meters away.  \nANSWER: DRIVE"
+        }
+      ]
+    },
+    {
+      "id": "gpt-low",
+      "label": "GPT-5.4",
+      "badge": "effort low",
+      "vendor": "openai",
+      "passed": false,
+      "attempts": 3,
+      "tokens": 318,
+      "thinking": 32,
+      "seconds": 17.2,
+      "transcript": [
+        {
+          "attempt": 1,
+          "verdict": "WALK",
+          "tokens": 96,
+          "text": "Since the car wash is only 50 meters away, walking is the more practical choice and avoids an unnecessary short drive.  \nANSWER: WALK"
+        },
+        {
+          "attempt": 2,
+          "verdict": "WALK",
+          "tokens": 95,
+          "text": "You should walk; 50 meters is very close, and it\u2019ll likely be quicker and easier than getting in and driving.  \nANSWER: WALK"
+        },
+        {
+          "attempt": 3,
+          "verdict": "WALK",
+          "tokens": 127,
+          "text": "Since the car wash is only 50 meters away, it makes more sense to walk than to drive such a short distance. Walking is quicker to justify and avoids the hassle of moving the car twice.\n\nANSWER: WALK"
+        }
+      ]
+    },
+    {
+      "id": "gpt-high",
+      "label": "GPT-5.4",
+      "badge": "effort high",
+      "vendor": "openai",
+      "passed": true,
+      "attempts": 1,
+      "tokens": 210,
+      "thinking": 113,
+      "seconds": 13.6,
+      "transcript": [
+        {
+          "attempt": 1,
+          "verdict": "DRIVE",
+          "tokens": 210,
+          "text": "Since you want to wash your car and the car wash is where the car needs to be, you should drive it there even if it\u2019s very close.  \nANSWER: DRIVE"
+        }
+      ]
+    },
+    {
+      "id": "o3-low",
+      "label": "o3",
+      "badge": "effort low",
+      "vendor": "openai",
+      "passed": false,
+      "attempts": 3,
+      "tokens": 318,
+      "thinking": 0,
+      "seconds": 22.4,
+      "transcript": [
+        {
+          "attempt": 1,
+          "verdict": "WALK",
+          "tokens": 101,
+          "text": "At just 50 meters away, it\u2019s quicker and more efficient to walk, saving fuel and avoiding the hassle of parking. \n\nANSWER: WALK"
+        },
+        {
+          "attempt": 2,
+          "verdict": "WALK",
+          "tokens": 105,
+          "text": "It\u2019s only about half a football field away, so walking saves fuel, avoids emissions, and is quicker than getting in and out of the car.  \nANSWER: WALK"
+        },
+        {
+          "attempt": 3,
+          "verdict": "WALK",
+          "tokens": 112,
+          "text": "At just 50 meters away, it\u2019s quicker and more environmentally friendly to cover that short distance on foot. Walking avoids the hassle of starting the car for such a brief trip.  \nANSWER: WALK"
+        }
+      ]
+    },
+    {
+      "id": "o3-high",
+      "label": "o3",
+      "badge": "effort high",
+      "vendor": "openai",
+      "passed": true,
+      "attempts": 1,
+      "tokens": 302,
+      "thinking": 192,
+      "seconds": 13.9,
+      "transcript": [
+        {
+          "attempt": 1,
+          "verdict": "DRIVE",
+          "tokens": 302,
+          "text": "You need the car at the wash facility for it to be cleaned, so even though it\u2019s only 50 m away, driving it over is the practical choice.  \nANSWER: DRIVE"
+        }
+      ]
+    }
+  ]
+}

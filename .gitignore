@@ -1,0 +1,13 @@
+# Local config holds a real Azure endpoint - copy config.example.json to config.json
+config.json
+
+# Engineering notes, kept local
+PLAN.md
+
+# Run output. results/sample-run.json is committed as an offline demo fixture.
+results/*
+!results/sample-run.json
+
+__pycache__/
+*.pyc
+.venv/

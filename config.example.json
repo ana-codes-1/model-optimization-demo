@@ -1,0 +1,54 @@
+{
+  "endpoint": "https://YOUR-FOUNDRY-RESOURCE.cognitiveservices.azure.com",
+  "openai_api_version": "2025-04-01-preview",
+  "anthropic_api_version": "2026-05-01",
+  "anthropic_version_header": "2023-06-01",
+  "max_attempts": 3,
+  "timeout_seconds": 60,
+  "openai_max_completion_tokens": 4000,
+  "anthropic_max_tokens": 8000,
+  "task": {
+    "question": "I want to wash my car. The car wash is 50 meters away. Should I walk or drive?",
+    "options": ["WALK", "DRIVE"],
+    "correct": "DRIVE",
+    "why": "The car has to physically be at the car wash."
+  },
+  "_aliases_note": "Only used when a model ignores the ANSWER: tag. Lets a known option match its inflections without false positives (e.g. 'driving' yes, 'driveway' no).",
+  "aliases": {
+    "WALK": ["walk", "walks", "walking"],
+    "DRIVE": ["drive", "drives", "driving"]
+  },
+  "_note": "Each row pairs a model at its cheapest thinking setting with its most expensive one. The knob differs by model generation, so params are given raw and merged straight into the request body.",
+
+  "roster": [
+    { "id": "opus-low",   "label": "Claude Opus 5",    "deployment": "claude-opus-5",    "vendor": "anthropic", "badge": "effort low",
+      "params": { "thinking": { "type": "adaptive" }, "output_config": { "effort": "low" } } },
+    { "id": "opus-high",  "label": "Claude Opus 5",    "deployment": "claude-opus-5",    "vendor": "anthropic", "badge": "effort max",
+      "params": { "thinking": { "type": "adaptive" }, "output_config": { "effort": "max" } } },
+
+    { "id": "haiku-low",  "label": "Claude Haiku 4.5", "deployment": "claude-haiku-4-5", "vendor": "anthropic", "badge": "thinking off",
+      "params": { "thinking": { "type": "disabled" } } },
+    { "id": "haiku-high", "label": "Claude Haiku 4.5", "deployment": "claude-haiku-4-5", "vendor": "anthropic", "badge": "thinking 4k",
+      "params": { "thinking": { "type": "enabled", "budget_tokens": 4000 } } },
+
+    { "id": "nano-low",   "label": "GPT-5.4 nano",     "deployment": "gpt-5.4-nano",     "vendor": "openai",    "badge": "effort low",
+      "params": { "reasoning_effort": "low" } },
+    { "id": "nano-high",  "label": "GPT-5.4 nano",     "deployment": "gpt-5.4-nano",     "vendor": "openai",    "badge": "effort high",
+      "params": { "reasoning_effort": "high" } },
+
+    { "id": "mini-low",   "label": "GPT-5.4 mini",     "deployment": "gpt-5.4-mini",     "vendor": "openai",    "badge": "effort low",
+      "params": { "reasoning_effort": "low" } },
+    { "id": "mini-high",  "label": "GPT-5.4 mini",     "deployment": "gpt-5.4-mini",     "vendor": "openai",    "badge": "effort high",
+      "params": { "reasoning_effort": "high" } },
+
+    { "id": "gpt-low",    "label": "GPT-5.4",          "deployment": "gpt-5.4",          "vendor": "openai",    "badge": "effort low",
+      "params": { "reasoning_effort": "low" } },
+    { "id": "gpt-high",   "label": "GPT-5.4",          "deployment": "gpt-5.4",          "vendor": "openai",    "badge": "effort high",
+      "params": { "reasoning_effort": "high" } },
+
+    { "id": "o3-low",     "label": "o3",               "deployment": "o3",               "vendor": "openai",    "badge": "effort low",
+      "params": { "reasoning_effort": "low" } },
+    { "id": "o3-high",    "label": "o3",               "deployment": "o3",               "vendor": "openai",    "badge": "effort high",
+      "params": { "reasoning_effort": "high" } }
+  ]
+}
