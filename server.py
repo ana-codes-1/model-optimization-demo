@@ -13,7 +13,7 @@ import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 RESULTS_DIR = os.path.join(ROOT, "results")
@@ -199,8 +199,32 @@ def run_all(emit, task):
 
 
 def task_from_query(query):
-    """Kept trivial on purpose: the demo always runs the task defined in config.json."""
-    return dict(CFG["task"])
+    """Build the task from the UI's query string; fall back to the one in config.json.
+
+    Scoring is a regex over a fixed option list, so a custom question has to be a
+    two-way choice. Anything looser would need a judge model, which this demo
+    deliberately does not have.
+    """
+    if not query:
+        return dict(CFG["task"])
+
+    params = parse_qs(query)
+    question = params.get("q", [""])[0].strip()
+    if not question:
+        return dict(CFG["task"])
+
+    options = [o.strip().upper() for o in params.get("options", [""])[0].split("|") if o.strip()]
+    correct = params.get("correct", [""])[0].strip().upper()
+
+    if len(options) != 2:
+        raise ValueError("Give exactly two answer options.")
+    if options[0] == options[1]:
+        raise ValueError("The two answer options must be different.")
+    if correct not in options:
+        raise ValueError("The correct answer must be one of the two options.")
+
+    return {"question": question, "options": options, "correct": correct,
+            "why": params.get("why", [""])[0].strip()}
 
 
 
@@ -227,6 +251,7 @@ class Handler(BaseHTTPRequestHandler):
 
         elif path == "/config":
             self._send(200, json.dumps({"task": CFG["task"], "roster": CFG["roster"],
+                                        "presets": CFG.get("presets", []),
                                         "max_attempts": CFG["max_attempts"]}),
                        "application/json")
 
@@ -240,8 +265,6 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, fh.read(), "application/json")
 
         elif path == "/run":
-            task = task_from_query(urlparse(self.path).query)
-
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream")
             self.send_header("Cache-Control", "no-cache")
@@ -253,7 +276,11 @@ class Handler(BaseHTTPRequestHandler):
                 self.wfile.write(chunk.encode("utf-8"))
                 self.wfile.flush()
 
+            # Parsed after the headers so a bad question reports over SSE, where the
+            # browser can actually read it, rather than as an opaque connection error.
             try:
+                task = task_from_query(urlparse(self.path).query)
+                emit("task", task)
                 run_all(emit, task)
             except Exception as exc:
                 try:

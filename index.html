@@ -24,13 +24,32 @@
   h1 { font-size: 13px; font-weight: 600; color: var(--dim); text-transform: uppercase;
        letter-spacing: .12em; margin: 0 0 12px; }
 
-  .question {
-    font-size: 24px; font-weight: 600; line-height: 1.3; max-width: 1000px;
-    padding-left: 14px; border-left: 3px solid var(--blue);
+  .askbar { max-width: 1000px; }
+  .field { margin-bottom: 12px; }
+  .field label {
+    display: block; font-size: 12px; font-weight: 600; color: var(--dim);
+    text-transform: uppercase; letter-spacing: .1em; margin-bottom: 5px;
   }
-  .key { margin-top: 10px; font-size: 15px; color: var(--dim); padding-left: 17px; }
+  input[type=text], select, textarea {
+    font: 16px/1.4 "Segoe UI", system-ui, sans-serif; color: var(--text);
+    background: var(--panel); border: 1px solid var(--line); border-radius: 7px;
+    padding: 9px 12px;
+  }
+  input[type=text]:focus, select:focus, textarea:focus {
+    outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(0,103,184,.16);
+  }
+  #q {
+    width: 100%; font-size: 19px; font-weight: 600; line-height: 1.35;
+    resize: vertical; min-height: 62px; border-left: 3px solid var(--blue);
+  }
+  #preset { min-width: 240px; }
+  .answers { display: flex; gap: 22px; flex-wrap: wrap; align-items: flex-end; }
+  .answers input[type=text] { width: 190px; font-weight: 600; }
+  .answers select { font-weight: 600; }
+  .key { margin-top: 4px; font-size: 15px; color: var(--dim); min-height: 22px; }
   .key b { color: #5C8600; }
-  .controls { margin-top: 20px; display: flex; gap: 12px; align-items: center; }
+  .key.err { color: var(--fail); font-weight: 600; }
+  .controls { margin-top: 18px; display: flex; gap: 12px; align-items: center; }
   #status { color: var(--dim); font-size: 15px; }
   button {
     font: 600 16px "Segoe UI", sans-serif; padding: 11px 26px; border-radius: 7px;
@@ -80,8 +99,35 @@
 
 <header>
   <h1>Model optimization &mdash; one question, twelve deployments</h1>
-  <div class="question" id="q">&nbsp;</div>
-  <div class="key" id="key">&nbsp;</div>
+
+  <div class="askbar">
+    <div class="field">
+      <label for="preset">Question</label>
+      <select id="preset"></select>
+    </div>
+
+    <div class="field">
+      <textarea id="q" rows="2" spellcheck="false"></textarea>
+    </div>
+
+    <div class="field answers">
+      <div>
+        <label for="optA">Answer A</label>
+        <input type="text" id="optA" spellcheck="false">
+      </div>
+      <div>
+        <label for="optB">Answer B</label>
+        <input type="text" id="optB" spellcheck="false">
+      </div>
+      <div>
+        <label for="correct">Correct one</label>
+        <select id="correct"></select>
+      </div>
+    </div>
+
+    <div class="key" id="key">&nbsp;</div>
+  </div>
+
   <div class="controls">
     <button class="primary" id="run">Run all 12</button>
     <button id="replay">Replay last</button>
@@ -98,7 +144,7 @@
 </footer>
 
 <script>
-let ROSTER = [], MAX_TOKENS = 1, RESULTS = {};
+let ROSTER = [], MAX_TOKENS = 1, RESULTS = {}, PRESETS = [];
 
 function el(tag, cls, txt) {
   const n = document.createElement(tag);
@@ -107,14 +153,79 @@ function el(tag, cls, txt) {
   return n;
 }
 
+const $ = id => document.getElementById(id);
+
 async function boot() {
   const cfg = await (await fetch('/config')).json();
   ROSTER = cfg.roster;
-  document.getElementById('q').textContent = cfg.task.question;
-  document.getElementById('key').innerHTML =
-    'Correct answer: <b>' + cfg.task.correct + '</b> &mdash; ' + cfg.task.why;
-  document.getElementById('ma').textContent = cfg.max_attempts;
+  PRESETS = cfg.presets || [];
+  $('ma').textContent = cfg.max_attempts;
+
+  const sel = $('preset');
+  PRESETS.forEach((p, i) => sel.appendChild(new Option(p.name, String(i))));
+  sel.appendChild(new Option('Custom question\u2026', 'custom'));
+
+  loadPreset(PRESETS.length ? 0 : 'custom', cfg.task);
   drawSkeleton();
+}
+
+/** Fill the form from a preset. `fallback` covers a config with no presets. */
+function loadPreset(index, fallback) {
+  const p = (index === 'custom') ? null : (PRESETS[index] || fallback);
+  if (!p) { $('key').textContent = 'Type a question and two possible answers.'; return; }
+  $('q').value = p.question;
+  $('optA').value = p.options[0];
+  $('optB').value = p.options[1];
+  syncCorrect(p.correct);
+  autosize();
+  showKey(p.why);
+}
+
+/** Keep the "correct one" dropdown in step with whatever the two answer boxes say. */
+function syncCorrect(prefer) {
+  const want = (prefer || $('correct').value || '').toUpperCase();
+  const opts = [$('optA').value.trim(), $('optB').value.trim()].filter(Boolean);
+  const sel = $('correct');
+  sel.innerHTML = '';
+  opts.forEach(o => sel.appendChild(new Option(o.toUpperCase(), o.toUpperCase())));
+  if (opts.map(o => o.toUpperCase()).includes(want)) sel.value = want;
+}
+
+function showKey(why) {
+  const k = $('key');
+  k.className = 'key';
+  const correct = $('correct').value;
+  k.innerHTML = correct
+    ? 'Correct answer: <b>' + correct + '</b>' + (why ? ' &mdash; ' + why : '')
+    : '&nbsp;';
+}
+
+function showErr(msg) {
+  const k = $('key');
+  k.className = 'key err';
+  k.textContent = msg;
+}
+
+function autosize() {
+  const t = $('q');
+  t.style.height = 'auto';
+  t.style.height = t.scrollHeight + 'px';
+}
+
+/** Read the form, validating the same rules the server enforces. */
+function readTask() {
+  const question = $('q').value.trim();
+  const a = $('optA').value.trim().toUpperCase();
+  const b = $('optB').value.trim().toUpperCase();
+  const correct = $('correct').value.trim().toUpperCase();
+
+  if (!question) throw new Error('Type a question first.');
+  if (!a || !b) throw new Error('Both answer options are required.');
+  if (a === b) throw new Error('The two answer options must be different.');
+  if (correct !== a && correct !== b) throw new Error('Pick which answer is correct.');
+
+  const preset = PRESETS.find(p => p.question === question);
+  return { question, options: [a, b], correct, why: preset ? preset.why : '' };
 }
 
 function drawSkeleton() {
@@ -179,16 +290,25 @@ function markBest() {
 }
 
 function start() {
+  let task;
+  try { task = readTask(); } catch (err) { showErr(err.message); return; }
+  showKey(task.why);
+
   RESULTS = {}; MAX_TOKENS = 1;
   drawSkeleton();
-  document.getElementById('run').disabled = true;
-  document.getElementById('replay').disabled = true;
-  const status = document.getElementById('status');
+  $('run').disabled = true;
+  $('replay').disabled = true;
+  const status = $('status');
   const t0 = Date.now();
   let n = 0;
-  status.textContent = 'Running 12 models in parallel\u2026';
+  status.textContent = 'Running ' + ROSTER.length + ' models in parallel\u2026';
 
-  const es = new EventSource('/run');
+  const url = '/run?q=' + encodeURIComponent(task.question)
+            + '&options=' + encodeURIComponent(task.options.join('|'))
+            + '&correct=' + encodeURIComponent(task.correct)
+            + '&why=' + encodeURIComponent(task.why);
+
+  const es = new EventSource(url);
   es.addEventListener('result', e => {
     render(JSON.parse(e.data));
     n++;
@@ -200,32 +320,61 @@ function start() {
     status.textContent = passed + ' of ' + ROSTER.length + ' correct \u00b7 '
       + ((Date.now() - t0) / 1000).toFixed(1) + 's';
     es.close();
-    document.getElementById('run').disabled = false;
-    document.getElementById('replay').disabled = false;
+    $('run').disabled = false;
+    $('replay').disabled = false;
   });
   es.addEventListener('fatal', e => {
-    status.textContent = 'Error: ' + JSON.parse(e.data).error;
+    showErr(JSON.parse(e.data).error);
+    status.textContent = '';
     es.close();
-    document.getElementById('run').disabled = false;
-    document.getElementById('replay').disabled = false;
+    $('run').disabled = false;
+    $('replay').disabled = false;
   });
 }
 
 async function replay() {
   const res = await fetch('/replay');
-  if (!res.ok) { document.getElementById('status').textContent = 'No saved run yet.'; return; }
+  if (!res.ok) { $('status').textContent = 'No saved run yet.'; return; }
   const data = await res.json();
+
+  // Restore the question that produced this run, so the chart is never mislabelled.
+  if (data.task) {
+    $('q').value = data.task.question;
+    $('optA').value = data.task.options[0];
+    $('optB').value = data.task.options[1];
+    syncCorrect(data.task.correct);
+    autosize();
+    showKey(data.task.why);
+    const i = PRESETS.findIndex(p => p.question === data.task.question);
+    $('preset').value = i >= 0 ? String(i) : 'custom';
+  }
+
   RESULTS = {}; MAX_TOKENS = 1;
   drawSkeleton();
   data.results.forEach(render);
   markBest();
   const passed = data.results.filter(r => r.passed).length;
-  document.getElementById('status').textContent =
+  $('status').textContent =
     passed + ' of ' + data.results.length + ' correct \u00b7 replay of ' + data.finished_at;
 }
 
-document.getElementById('run').onclick = start;
-document.getElementById('replay').onclick = replay;
+$('preset').onchange = e => {
+  const v = e.target.value;
+  loadPreset(v === 'custom' ? 'custom' : Number(v));
+};
+['optA', 'optB'].forEach(id => { $(id).oninput = () => { syncCorrect(); showKey(''); }; });
+$('correct').onchange = () => showKey('');
+$('q').oninput = () => {
+  autosize();
+  // Typing your own question means it is no longer whichever preset was selected.
+  const i = PRESETS.findIndex(p => p.question === $('q').value.trim());
+  $('preset').value = i >= 0 ? String(i) : 'custom';
+};
+$('q').onkeydown = e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); start(); }
+};
+$('run').onclick = start;
+$('replay').onclick = replay;
 boot();
 </script>
 </body>
