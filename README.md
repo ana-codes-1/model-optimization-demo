@@ -143,6 +143,15 @@ That second preset separates models far more sharply than the car wash does. In 
 that noticed the laptop was dead were both Claude Opus 5, and the cheaper of the two
 settings caught it for fewer tokens than most models spent being wrong.
 
+The third preset is a different shape and worth having for contrast. It asks whether 500
+laptops with self-encrypting drives can ship to a customer's Moscow subsidiary, and buries
+that inside a larger order that also mentions Shenzhen. Nothing is logically impossible
+here — the model has to know that Russia is under export sanctions, that encryption
+hardware is controlled, and that only the Moscow leg was actually asked about. It tests
+domain knowledge and careful reading rather than a trap, and it scores almost inversely to
+the laptop question. Between the two you can show a partner that "which model is best"
+has no answer independent of what they intend to ask it.
+
 Avoid famous puzzles. Bat-and-ball and the surgeon riddle are in every training set;
 running them here returns 12 of 12 passing on the first attempt, which measures
 memorisation rather than reasoning. The useful test is a question shaped like your own

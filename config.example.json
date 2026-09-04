@@ -1,5 +1,5 @@
 {
-  "endpoint": "https://YOUR-FOUNDRY-RESOURCE.cognitiveservices.azure.com",
+  "endpoint": "https://YOUR-RESOURCE.cognitiveservices.azure.com",
   "openai_api_version": "2025-04-01-preview",
   "anthropic_api_version": "2026-05-01",
   "anthropic_version_header": "2023-06-01",
@@ -28,6 +28,13 @@
       "options": ["PORTAL", "SERVICE DESK"],
       "correct": "SERVICE DESK",
       "why": "The self-service portal needs a working laptop \u2014 the one that is dead."
+    },
+    {
+      "name": "Moscow shipment (compliance)",
+      "question": "A customer wants 500 laptops with self-encrypting drives shipped to their engineering office in Shenzhen and their subsidiary in Moscow. Can we ship 500 laptops with self-encrypting drives to our customer's subsidiary in Moscow?",
+      "options": ["YES", "NO"],
+      "correct": "NO",
+      "why": "Russia is under export sanctions and encryption hardware is controlled. Shenzhen is a distractor \u2014 only the Moscow leg was asked about."
     }
   ],
 
