@@ -18,12 +18,26 @@ from urllib.parse import parse_qs, urlparse
 ROOT = os.path.dirname(os.path.abspath(__file__))
 RESULTS_DIR = os.path.join(ROOT, "results")
 
-with open(os.path.join(ROOT, "config.json"), encoding="utf-8") as fh:
+# config.json is gitignored because it carries a real endpoint, so a fresh clone
+# (and `azd up`, which deploys from the working tree) falls back to the committed
+# example. Everything except the endpoint is identical between the two, and
+# AZURE_AI_ENDPOINT below supplies the endpoint in Azure.
+CONFIG_PATH = os.path.join(ROOT, "config.json")
+if not os.path.exists(CONFIG_PATH):
+    CONFIG_PATH = os.path.join(ROOT, "config.example.json")
+
+with open(CONFIG_PATH, encoding="utf-8") as fh:
     CFG = json.load(fh)
 
 # Lets the hosted build ship a placeholder config and inject the real endpoint.
 if os.environ.get("AZURE_AI_ENDPOINT"):
     CFG["endpoint"] = os.environ["AZURE_AI_ENDPOINT"].rstrip("/")
+
+if "YOUR-FOUNDRY-RESOURCE" in CFG["endpoint"]:
+    raise SystemExit(
+        "No AI endpoint configured. Either copy config.example.json to config.json "
+        "and set \"endpoint\", or set the AZURE_AI_ENDPOINT environment variable."
+    )
 
 
 def build_prompt(task):
@@ -333,8 +347,10 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
-    # Containers must accept traffic from outside the loopback interface.
-    host = "0.0.0.0" if os.environ.get("IDENTITY_ENDPOINT") else "127.0.0.1"
+    # Containers and App Service must accept traffic from outside the loopback
+    # interface; WEBSITE_SITE_NAME is set on App Service even without an identity.
+    hosted = os.environ.get("IDENTITY_ENDPOINT") or os.environ.get("WEBSITE_SITE_NAME")
+    host = "0.0.0.0" if hosted else "127.0.0.1"
     print("Checking Azure credentials...")
     get_token()
     print("Token OK. %d contestants ready." % len(CFG["roster"]))

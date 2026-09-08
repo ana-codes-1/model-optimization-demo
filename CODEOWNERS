@@ -1,0 +1,10 @@
+# Code owners for this demo. The template ships the whole EPS team here; per its
+# own instructions ("repos generated from this template should update this list
+# to the architect(s) actually building and owning that specific demo") it is
+# narrowed to the owner of this repo, which is also why the org's ACL, JIT, and
+# compliance-inventory policies were not imported — they only function inside
+# the Microsoft-managed org and would publish an internal roster from a public
+# personal repository.
+# See https://docs.github.com/articles/about-code-owners
+
+* @ana-codes-1

@@ -7,6 +7,9 @@ PLAN.md
 # Run output, all of it local.
 results/
 
+# azd environment state - holds subscription and endpoint values per environment.
+.azure/
+
 __pycache__/
 *.pyc
 .venv/

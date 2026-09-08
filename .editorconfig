@@ -1,0 +1,36 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+# C# / .NET backend
+[*.{cs,csx}]
+indent_size = 4
+
+[*.{csproj,props,targets,config,nuspec}]
+indent_size = 2
+
+# Python backend
+[*.py]
+indent_size = 4
+
+# Markdown — keep trailing whitespace (hard line breaks)
+[*.{md,markdown}]
+trim_trailing_whitespace = false
+
+[*.{yml,yaml}]
+indent_size = 2
+
+[*.bicep]
+indent_size = 2
+
+[*.sln]
+indent_style = tab
+
+[Makefile]
+indent_style = tab

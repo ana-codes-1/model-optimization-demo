@@ -148,52 +148,53 @@ are list-price estimates for comparing models against each other, not an invoice
 
 ### Hosting it
 
-The same `server.py` runs locally and in a container. It picks its credential automatically:
+The same `server.py` runs locally and in Azure. It picks its credential automatically:
 if `IDENTITY_ENDPOINT` is set it uses the platform's managed identity, otherwise it falls
-back to whoever is signed in to the Azure CLI. It also binds `0.0.0.0` when hosted and
+back to whoever is signed in to the Azure CLI. It binds `0.0.0.0` when hosted and
 `127.0.0.1` when not, and honours `PORT` and `AZURE_AI_ENDPOINT`.
 
-It is deployed to App Service as a container, at
-**https://model-optimization-demo.azurewebsites.net**.
+Deployment is [`azd`](https://aka.ms/azd) over the Bicep in [`infra/`](infra/):
 
 ```bash
-# build and push the image
-az acr build -r <acr> -t model-opt-demo:latest .
+azd auth login
 
-# Linux containers need B1 or higher; F1 will not run them
-az appservice plan create -n <plan> -g <rg> --is-linux --sku B1 --location <region>
-az webapp create -n model-optimization-demo -g <rg> -p <plan> \
-  --container-image-name <acr>.azurecr.io/model-opt-demo:latest \
-  --assign-identity '[system]'
+# the Foundry account is referenced, not provisioned - see ADR 0008
+azd env set AZURE_FOUNDRY_ACCOUNT        <account-name>
+azd env set AZURE_FOUNDRY_RESOURCE_GROUP <resource-group>
 
-# let the app pull from ACR with its own identity, and reach the model endpoint
-az role assignment create --assignee-object-id <principalId> \
-  --assignee-principal-type ServicePrincipal --role "AcrPull" --scope <acr-resource-id>
-az role assignment create --assignee-object-id <principalId> \
-  --assignee-principal-type ServicePrincipal --role "Cognitive Services User" \
-  --scope <foundry-resource-id>
-az webapp config set -n model-optimization-demo -g <rg> \
-  --generic-configurations '{"acrUseManagedIdentityCreds": true}'
-az webapp config appsettings set -n model-optimization-demo -g <rg> \
-  --settings WEBSITES_PORT=8000 AZURE_AI_ENDPOINT=<endpoint>
+azd up          # or: make deploy
 ```
 
-**That second role assignment is not optional.** The resource sets `disableLocalAuth=true`,
-so there is no API key to fall back on — without it the app starts fine and then 401s on
-every model call. `az role assignment create` prints nothing on success, so confirm with
-`az role assignment list --assignee <principalId> --all -o table`.
+That provisions a resource group, a Linux App Service plan and web app, Log Analytics and
+App Insights, and a monthly budget with alerts — then zip-deploys the app. There is no
+container image and no registry: the app is standard library only, so App Service runs
+`python server.py` directly.
 
-Two things that will bite you. App Service quota is per region: if `appservice plan create`
-reports `Current Usage: 0 / Amount required: 1`, that region has no quota on the
-subscription and you need a different one — the app does not have to share a region with
-the model endpoint, since a cross-region hop is worth a few tens of milliseconds against
-calls that take seconds. And the plan bills whether or not anyone is using it, so stop it
-between demos:
+`azd` also grants the two role assignments the demo needs, through a single shared
+[`role-assignment.bicep`](infra/modules/role-assignment.bicep) module invoked once for the
+web app's identity and once for you. **The Foundry grant is not optional** — that account
+sets `disableLocalAuth=true`, so there is no API key to fall back on, and without the role
+the app starts fine and then 401s on every model call. Granting the same role to the
+signed-in developer is what lets `make dev` reach the real models locally.
+
+The Foundry account itself is *not* provisioned here — it and its twelve deployments
+predate this repo. [ADR 0008](docs/adr/0008-existing-foundry-account.md) explains why.
+The two `azd env set` values above are deliberately not defaulted in
+`infra/main.bicepparam`: the account name is also the endpoint hostname, and this repo
+keeps the live endpoint out of source, which is the same reason `config.json` is
+gitignored while `config.example.json` carries a placeholder.
+
+Two things that will bite you. **App Service quota is per region**, and this subscription
+has none in `eastus2` or `eastus`; `westus2` works. The app does not have to share a region
+with the model endpoint — a cross-region hop costs a few tens of milliseconds against calls
+that take seconds. And **the plan bills whether or not anyone is using it**:
 
 ```bash
-az webapp stop  -n model-optimization-demo -g <rg>   # before
-az webapp start -n model-optimization-demo -g <rg>   # when you need it back
+make down       # azd down --purge, between demos
 ```
+
+`docs/adr/0007` records why this is App Service rather than the Static Web Apps + Functions
+default in the team standards.
 
 ## Adapting it to your own question
 
@@ -251,6 +252,30 @@ domain, where the wrong answer is the plausible one.
 | `refresh_prices.py` | Re-checks the rates in `config.json` against the live Azure price feed |
 | `deploy-claude.json` | ARM template for deploying Anthropic models to Foundry |
 | `results/` | Every run is archived here as a timestamped JSON file |
+| `infra/` | Bicep for `azd up`: App Service, budget, App Insights, and the Foundry role grants |
+| `azure.yaml` | `azd` project file — one service, `python server.py` on App Service |
+| `Makefile` | The four uniform verbs: `dev`, `test`, `lint`, `deploy` |
+| `docs/` | ADRs and the standards-compliance table |
+| `AGENTS.md`, `.github/skills/`, `.github/agents/` | Team standards, adopted from `eps-demos-template` |
+
+## Team standards
+
+This repo follows the
+[EPS demos template](https://github.com/mcaps-us/eps-demos-template) (Microsoft-internal).
+[`AGENTS.md`](AGENTS.md) and the twelve skills under
+[`.github/skills/`](.github/skills/) are instructions for coding agents working here —
+Copilot reads them before touching anything, so changes arrive shaped like the rest of the
+team's demos.
+
+Where this demo deliberately departs from those standards it says so:
+[ADR 0007](docs/adr/0007-app-service-for-streaming-fan-out.md) for the compute choice,
+[ADR 0008](docs/adr/0008-existing-foundry-account.md) for reusing the Foundry account, and
+the [compliance table](docs/README.md) for the rest — including the two rules it knowingly
+does not meet (no rate limiting, no CI coverage gates) and why.
+
+The org's ACL, JIT, and compliance-inventory policies were **not** imported. They only
+function inside the Microsoft-managed org, and they list team members by alias and email,
+which has no business in a public repository.
 
 ## Notes on Foundry
 

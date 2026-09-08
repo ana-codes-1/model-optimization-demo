@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+#
+# Azure Developer CLI project file. `azd up` is the uniform `deploy` verb
+# (eps-demo-devx / eps-demo-architecture). infra/main.bicep is subscription-
+# scoped and creates its own resource group, so `azd up` brings up a brand new
+# environment from scratch — no pre-existing resource group required.
+name: model-optimization-demo
+metadata:
+  template: eps-demos-template@0.1.0
+infra:
+  path: infra
+  module: main
+hooks:
+  preprovision:
+    posix:
+      shell: sh
+      run: infra/hooks/preprovision.sh
+      interactive: false
+      continueOnError: false
+    windows:
+      shell: pwsh
+      run: infra/hooks/preprovision.ps1
+      interactive: false
+      continueOnError: false
+
+# Add one entry per deployable service once the stack is chosen and the
+# matching compute is added to infra/resources.bicep (eps-demo-architecture
+# recommends Static Web Apps + Azure Functions Flex Consumption, or Container
+# Apps — neither is mandated). This demo runs a single stdlib Python process on
+# Linux App Service instead; docs/adr/0007 records why.
+services:
+  web:
+    project: .
+    language: py
+    host: appservice
