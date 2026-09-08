@@ -1,0 +1,9 @@
+.git
+.gitignore
+PLAN.md
+README.md
+verify.py
+smoke_test.py
+deploy-claude.json
+results/*
+!results/sample-run.json

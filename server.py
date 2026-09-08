@@ -23,6 +23,10 @@ SAMPLE_RUN = os.path.join(RESULTS_DIR, "sample-run.json")
 with open(os.path.join(ROOT, "config.json"), encoding="utf-8") as fh:
     CFG = json.load(fh)
 
+# Lets the hosted build ship a placeholder config and inject the real endpoint.
+if os.environ.get("AZURE_AI_ENDPOINT"):
+    CFG["endpoint"] = os.environ["AZURE_AI_ENDPOINT"].rstrip("/")
+
 
 def build_prompt(task):
     """Force a tagged final line so scoring stays deterministic for any question."""
@@ -33,6 +37,32 @@ def build_prompt(task):
 
 _token = {"value": None, "fetched": 0.0}
 _token_lock = threading.Lock()
+RESOURCE = "https://cognitiveservices.azure.com"
+
+
+def _token_from_managed_identity():
+    """Container Apps injects these two vars. Returns None when running locally."""
+    endpoint = os.environ.get("IDENTITY_ENDPOINT")
+    header = os.environ.get("IDENTITY_HEADER")
+    if not (endpoint and header):
+        return None
+    url = "%s?resource=%s&api-version=2019-08-01" % (endpoint, RESOURCE)
+    req = urllib.request.Request(url, headers={"X-IDENTITY-HEADER": header})
+    with urllib.request.urlopen(req, timeout=20) as resp:
+        return json.load(resp)["access_token"]
+
+
+def _token_from_cli():
+    """Local path: borrow whoever is signed in to the Azure CLI."""
+    proc = subprocess.run(
+        ["az", "account", "get-access-token",
+         "--resource", RESOURCE, "--query", "accessToken", "-o", "tsv"],
+        capture_output=True, text=True, shell=True,
+    )
+    value = proc.stdout.strip()
+    if not value:
+        raise RuntimeError("az token fetch failed: " + proc.stderr.strip()[:200])
+    return value
 
 
 def get_token(force=False):
@@ -40,16 +70,7 @@ def get_token(force=False):
     with _token_lock:
         stale = time.time() - _token["fetched"] > 1800
         if force or stale or not _token["value"]:
-            proc = subprocess.run(
-                ["az", "account", "get-access-token",
-                 "--resource", "https://cognitiveservices.azure.com",
-                 "--query", "accessToken", "-o", "tsv"],
-                capture_output=True, text=True, shell=True,
-            )
-            value = proc.stdout.strip()
-            if not value:
-                raise RuntimeError("az token fetch failed: " + proc.stderr.strip()[:200])
-            _token["value"] = value
+            _token["value"] = _token_from_managed_identity() or _token_from_cli()
             _token["fetched"] = time.time()
         return _token["value"]
 
@@ -294,8 +315,11 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
+    port = int(os.environ.get("PORT", "8000"))
+    # Containers must accept traffic from outside the loopback interface.
+    host = "0.0.0.0" if os.environ.get("IDENTITY_ENDPOINT") else "127.0.0.1"
     print("Checking Azure credentials...")
     get_token()
     print("Token OK. %d contestants ready." % len(CFG["roster"]))
-    print("Open http://localhost:8000")
-    ThreadingHTTPServer(("127.0.0.1", 8000), Handler).serve_forever()
+    print("Listening on %s:%d" % (host, port))
+    ThreadingHTTPServer((host, port), Handler).serve_forever()

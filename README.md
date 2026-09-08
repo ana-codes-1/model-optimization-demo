@@ -113,6 +113,29 @@ python verify.py claude-opus-5         # one raw call, complete unfiltered respo
 JSON including rate-limit headers — useful when you want to confirm a number rather than
 trust one.
 
+### Hosting it
+
+The same `server.py` runs locally and in a container. It picks its credential automatically:
+if `IDENTITY_ENDPOINT` is set it uses the platform's managed identity, otherwise it falls
+back to whoever is signed in to the Azure CLI. It also binds `0.0.0.0` when hosted and
+`127.0.0.1` when not, and honours `PORT` and `AZURE_AI_ENDPOINT`.
+
+```bash
+az containerapp up -n model-opt-demo -g <rg> --environment <env> \
+  --source . --ingress external --target-port 8000
+az containerapp identity assign -n model-opt-demo -g <rg> --system-assigned
+az role assignment create --assignee-object-id <principalId> \
+  --assignee-principal-type ServicePrincipal --role "Cognitive Services User" \
+  --scope <foundry-resource-id>
+```
+
+**That role assignment is not optional.** The resource sets `disableLocalAuth=true`, so
+there is no API key to fall back on — without it the app starts fine and then 401s on
+every model call.
+
+Scale to zero when you are not demoing (`--min-replicas 0`) and the cost goes to nothing,
+at the price of a cold start on the next click.
+
 ## Adapting it to your own question
 
 The UI has a preset dropdown and editable fields for the question, both answer labels, and
