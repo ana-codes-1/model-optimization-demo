@@ -16,6 +16,7 @@ param developerPrincipalId string
 param grantDeveloperAccess bool
 
 // Cognitive Services User: enough to call model deployments, not to manage them.
+// Granted on the account itself by role-assignment.bicep, not on this group.
 var cognitiveServicesUser = 'a97b65f3-24c7-4388-baec-2e87135dc908'
 
 resource foundry 'Microsoft.CognitiveServices/accounts@2024-10-01' existing = {
@@ -25,7 +26,7 @@ resource foundry 'Microsoft.CognitiveServices/accounts@2024-10-01' existing = {
 module appGrant 'role-assignment.bicep' = {
   name: 'foundry-grant-app'
   params: {
-    scopeResourceId: foundry.id
+    foundryAccountName: foundryAccountName
     principalId: appPrincipalId
     principalType: 'ServicePrincipal'
     roleDefinitionId: cognitiveServicesUser
@@ -37,7 +38,7 @@ module appGrant 'role-assignment.bicep' = {
 module developerGrant 'role-assignment.bicep' = if (grantDeveloperAccess && !empty(developerPrincipalId)) {
   name: 'foundry-grant-developer'
   params: {
-    scopeResourceId: foundry.id
+    foundryAccountName: foundryAccountName
     principalId: developerPrincipalId
     principalType: 'User'
     roleDefinitionId: cognitiveServicesUser

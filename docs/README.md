@@ -33,7 +33,7 @@ silently — anything not ✅ has a reason and a route.
 | Standard | Status | Notes |
 |---|---|---|
 | Hosted in Azure | ✅ | Linux App Service, provisioned by [`infra/`](../infra/) |
-| Bicep IaC | ✅ | `azd up` builds the whole environment from scratch |
+| Bicep IaC | ✅ | `azd up` builds the app environment — resource group, App Service, observability, budget, and both role grants. The Foundry account it calls is referenced, not provisioned ([adr/0008](adr/0008-existing-foundry-account.md)) |
 | Managed Identity, no keys | ✅ | System-assigned identity; the Foundry account has `disableLocalAuth=true`, so no key exists to leak even by accident |
 | Config-driven models | ✅ | The twelve-model roster, prompts, and price table all live in `config.json`; no model name appears in source |
 | Content filters on | ✅ | Foundry defaults, untouched. One preset deliberately trips them — see the README |
@@ -41,8 +41,8 @@ silently — anything not ✅ has a reason and a route.
 | "Demo only" indicator | ⚠️ | The page is self-evidently a model comparison and names no partner, but carries no explicit demo banner |
 | `/docs` single source of truth | ⚠️ | This folder plus the ADRs; several areas are still covered by the root README rather than moved here |
 | Private Link | ❌ | Deliberate. Public endpoint, no data services, nothing to reach privately — [adr/0003](adr/0003-private-link-opt-in-by-default.md) makes this opt-in |
-| Rate limiting | ❌ | **Accepted risk.** The endpoint is public and unauthenticated, and every run spends real tokens. Bounded by the App Service plan, the budget alert below, and `make down` between demos. Fix if this is ever left running unattended |
-| CI coverage gates (BE ≥ 70% / FE ≥ 60%) | ❌ | No CI and no unit tests. `make test` runs the roster end to end against Azure and re-verifies every price against the live feed, which is the check that actually protects this demo |
+| Rate limiting | ❌ | **Accepted risk, and the sharpest one here.** The endpoint is public and unauthenticated, and every run spends real tokens across twelve models. The budget alert below *notifies*, it does not cap. Real mitigation is operational: `make down` between demos. Add auth before leaving this running unattended |
+| CI coverage gates (BE ≥ 70% / FE ≥ 60%) | ❌ | No CI and no unit tests. `make test` runs the roster end to end against Azure and re-verifies every price against the live feed. That catches the failures this demo actually has — a dead deployment, a revoked role, a stale price — but it costs real tokens and cannot run in CI as-is |
 | Budget alerts in Bicep | ✅ | `Microsoft.Consumption/budgets`, 80% actual + 100% forecast, wired to the deployer's email |
 | Long-lived production readiness | ❌ | Out of scope by design. This is a supervised, presenter-driven demo; [`eps-demo-production-readiness`](../.github/skills/eps-demo-production-readiness/SKILL.md) applies only if it becomes globally shared |
 

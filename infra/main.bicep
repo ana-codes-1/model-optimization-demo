@@ -32,7 +32,7 @@ param principalId string = ''
 param grantDeveloperAccess bool = true
 
 @description('Name of the existing AI Foundry account holding the model roster (docs/adr/0008). Set with `azd env set AZURE_FOUNDRY_ACCOUNT`; not defaulted, because the account name is also the endpoint hostname and this repo keeps that out of source.')
-@minLength(1)
+@minLength(2)
 param foundryAccountName string
 
 @description('Resource group holding that Foundry account. It predates this deployment and is not managed here. Set with `azd env set AZURE_FOUNDRY_RESOURCE_GROUP`.')
