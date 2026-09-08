@@ -113,6 +113,36 @@ python verify.py claude-opus-5         # one raw call, complete unfiltered respo
 JSON including rate-limit headers — useful when you want to confirm a number rather than
 trust one.
 
+### What the dollar figures mean
+
+Each row shows a cost, and the bar can be scaled by cost or by tokens — the toggle sits
+next to the Run button. Cost is the better default, because a token axis quietly compares
+models whose rates differ by more than 100x: 1,000 nano tokens and 1,000 Opus tokens are
+not the same purchase.
+
+The number is **measured tokens × published rate**. The token counts are real — Azure
+returns them in every response, split into input and output. The rates live in
+`config.json` under `pricing`, in USD per million tokens, and come from two places:
+
+| Models | Rate source | Verifiable? |
+| --- | --- | --- |
+| GPT-5.4, mini, nano, o3 | Azure Retail Prices API, `serviceName eq 'Foundry Models'`, Global SKU | Yes — `python refresh_prices.py` |
+| Claude Opus 5, Haiku 4.5 | Anthropic's published price list | By eye, at the URL the script prints |
+
+That split is not an oversight. Claude has **no token meter in the Azure feed at all** —
+on Azure it bills as `claude-consumption-units` rather than per token — so there is no
+Microsoft-published per-token rate to look up. Anthropic's list price is the same page the
+Foundry portal links to for those models, and it is the best available answer.
+
+`refresh_prices.py` re-pulls every Azure rate and diffs it against `config.json`, exiting
+non-zero if anything moved. Run it before a demo if the numbers are going on a slide.
+
+Two things to say out loud if anyone asks how exact these are. Thinking tokens bill as
+**output**, which is several times the input rate — that is precisely why the
+high-reasoning rows stretch so far. And Azure bills **aggregated daily meters, never
+individual requests**, so no per-call invoice exists anywhere to reconcile against. These
+are list-price estimates for comparing models against each other, not an invoice.
+
 ### Hosting it
 
 The same `server.py` runs locally and in a container. It picks its credential automatically:
@@ -215,6 +245,7 @@ domain, where the wrong answer is the plausible one.
 | `index.html` | Frontend: chart and controls. No framework, no build step |
 | `smoke_test.py` | CLI runner |
 | `verify.py` | Single raw call with the full unedited response |
+| `refresh_prices.py` | Re-checks the rates in `config.json` against the live Azure price feed |
 | `deploy-claude.json` | ARM template for deploying Anthropic models to Foundry |
 | `results/sample-run.json` | A real run, committed so Replay works offline |
 

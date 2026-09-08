@@ -100,10 +100,14 @@ def call_openai(entry, prompt):
     body.update(entry.get("params", {}))
     data = _post(url, body)
     usage = data.get("usage", {})
+    details = usage.get("prompt_tokens_details") or {}
     return {
         "text": (data["choices"][0]["message"].get("content") or "").strip(),
         "tokens": usage.get("total_tokens", 0),
-        "thinking": usage.get("completion_tokens_details", {}).get("reasoning_tokens", 0),
+        "tokens_in": usage.get("prompt_tokens", 0),
+        "tokens_out": usage.get("completion_tokens", 0),
+        "tokens_cached": details.get("cached_tokens", 0) or 0,
+        "thinking": (usage.get("completion_tokens_details") or {}).get("reasoning_tokens", 0),
     }
 
 
@@ -124,8 +128,27 @@ def call_anthropic(entry, prompt):
     return {
         "text": text,
         "tokens": usage.get("input_tokens", 0) + usage.get("output_tokens", 0),
-        "thinking": usage.get("output_tokens_details", {}).get("thinking_tokens", 0),
+        "tokens_in": usage.get("input_tokens", 0),
+        "tokens_out": usage.get("output_tokens", 0),
+        "tokens_cached": usage.get("cache_read_input_tokens", 0) or 0,
+        "thinking": (usage.get("output_tokens_details") or {}).get("thinking_tokens", 0),
     }
+
+
+def cost_usd(entry, tokens_in, tokens_out, tokens_cached):
+    """List-price estimate. None when we have no defensible rate for the model.
+
+    Thinking tokens are already inside tokens_out on both APIs, and they bill as
+    output - which is the whole point of showing this next to the pass/fail.
+    """
+    rate = (CFG.get("pricing") or {}).get(entry["deployment"])
+    if not rate:
+        return None
+    billable_in = max(tokens_in - tokens_cached, 0)
+    cached_rate = rate.get("cached_in", rate["in"])
+    return (billable_in * rate["in"]
+            + tokens_cached * cached_rate
+            + tokens_out * rate["out"]) / 1_000_000
 
 
 def score(text, task):
@@ -158,6 +181,7 @@ def run_contestant(entry, task):
     started = time.time()
     prompt = build_prompt(task)
     total_tokens = total_thinking = 0
+    total_in = total_out = total_cached = 0
     transcript = []
     passed = False
 
@@ -168,6 +192,9 @@ def run_contestant(entry, task):
             ok, verdict = score(res["text"], task)
             total_tokens += res["tokens"]
             total_thinking += res["thinking"]
+            total_in += res.get("tokens_in", 0)
+            total_out += res.get("tokens_out", 0)
+            total_cached += res.get("tokens_cached", 0)
             transcript.append({"attempt": attempt, "verdict": verdict,
                                "tokens": res["tokens"], "text": res["text"]})
         except Exception as exc:  # timeout, 429, anything - counts as a failed attempt
@@ -182,6 +209,8 @@ def run_contestant(entry, task):
         "id": entry["id"], "label": entry["label"], "badge": entry["badge"],
         "vendor": entry["vendor"], "passed": passed,
         "attempts": len(transcript), "tokens": total_tokens,
+        "tokens_in": total_in, "tokens_out": total_out, "tokens_cached": total_cached,
+        "cost_usd": cost_usd(entry, total_in, total_out, total_cached),
         "thinking": total_thinking, "seconds": round(time.time() - started, 1),
         "transcript": transcript,
     }
@@ -273,6 +302,7 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/config":
             self._send(200, json.dumps({"task": CFG["task"], "roster": CFG["roster"],
                                         "presets": CFG.get("presets", []),
+                                        "pricing": CFG.get("pricing", {}),
                                         "max_attempts": CFG["max_attempts"]}),
                        "application/json")
 
