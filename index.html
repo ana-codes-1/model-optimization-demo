@@ -319,12 +319,9 @@ function redraw() {
 
     const tries = res.attempts > 1
       ? '<span class="warn">' + res.attempts + ' tries</span> &middot; ' : '';
-    const io = (res.tokens_in !== undefined)
-      ? ' <span style="opacity:.65">(' + res.tokens_in + ' in / ' + res.tokens_out + ' out)</span>'
-      : '';
     row.querySelector('.meta').innerHTML =
       tries + '<b>' + money(res.cost_usd) + '</b> &middot; ' +
-      res.tokens.toLocaleString() + ' tokens' + io + ' &middot; ' + res.seconds + 's';
+      res.tokens.toLocaleString() + ' tokens &middot; ' + res.seconds + 's';
   });
 }
 
