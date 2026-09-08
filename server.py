@@ -40,6 +40,26 @@ if "YOUR-FOUNDRY-RESOURCE" in CFG["endpoint"]:
     )
 
 
+def _build_commit():
+    """Which commit is actually serving. Read from .git directly rather than
+    shelling out, because the deployed App Service image has no git binary."""
+    env = os.environ.get("BUILD_COMMIT")
+    if env:
+        return env[:7]
+    try:
+        with open(os.path.join(ROOT, ".git", "HEAD"), encoding="utf-8") as fh:
+            head = fh.read().strip()
+        if head.startswith("ref: "):
+            with open(os.path.join(ROOT, ".git", head[5:]), encoding="utf-8") as fh:
+                head = fh.read().strip()
+        return head[:7]
+    except OSError:
+        return None
+
+
+BUILD_COMMIT = _build_commit()
+
+
 def build_prompt(task):
     """Force a tagged final line so scoring stays deterministic for any question."""
     tags = " or ".join("ANSWER: " + o for o in task["options"])
@@ -313,8 +333,30 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, json.dumps({"task": CFG["task"], "roster": CFG["roster"],
                                         "presets": CFG.get("presets", []),
                                         "pricing": CFG.get("pricing", {}),
+                                        "commit": BUILD_COMMIT,
                                         "max_attempts": CFG["max_attempts"]}),
                        "application/json")
+
+        elif path == "/health":
+            # Readiness without spending anything: config parsed, roster present,
+            # and a credential obtainable. Deliberately never calls a model, so it
+            # can be polled before a demo without moving the cost needle.
+            checks = {}
+            try:
+                checks["config"] = bool(CFG.get("roster")) and bool(CFG.get("endpoint"))
+                checks["models_configured"] = len(CFG.get("roster", []))
+                checks["pricing_configured"] = len(CFG.get("pricing", {}))
+                checks["credential"] = bool(get_token())
+                checks["credential_source"] = ("managed-identity"
+                                               if os.environ.get("IDENTITY_ENDPOINT")
+                                               else "azure-cli")
+            except Exception as exc:
+                checks["credential"] = False
+                checks["error"] = str(exc)[:200]
+            ready = bool(checks.get("config")) and bool(checks.get("credential"))
+            payload = {"status": "ready" if ready else "degraded",
+                       "commit": BUILD_COMMIT, "checks": checks}
+            self._send(200 if ready else 503, json.dumps(payload), "application/json")
 
         elif path == "/run":
             self.send_response(200)

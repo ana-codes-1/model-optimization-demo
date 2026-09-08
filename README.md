@@ -105,6 +105,7 @@ Edit the `roster` in `config.json` to match your own deployment names.
 ```bash
 python smoke_test.py                   # run from the CLI, no browser
 python verify.py claude-opus-5         # one raw call, complete unfiltered response
+curl localhost:8000/health             # readiness without spending anything
 ```
 
 `verify.py` is the honesty check. It prints the exact URL, the exact body, and Azure's raw

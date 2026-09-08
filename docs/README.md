@@ -22,8 +22,8 @@ so rather than shipping an empty heading.
 | cost/ | Not yet written. Per-model cost is a first-class feature of the app itself, and the README's "What the dollar figures mean" documents every rate and its source |
 | operations/ | Not yet written. `make deploy` / `make down` and the README's "Hosting it" cover the lifecycle |
 | api/ | N/A. The only HTTP surface is `/run` (SSE) and `/config`, both internal to the page |
-| telemetry/ | App Insights is provisioned but the app emits no custom events yet |
-| health/ | N/A. No health endpoint — this is a supervised demo, not a long-lived service (see the table) |
+| telemetry/ | App Insights is provisioned and wired to the app, but the app emits no custom events — treat it as available infrastructure, not a working telemetry story |
+| health/ | `GET /health` reports readiness without model inference: config parsed, roster and price table loaded, and a credential actually obtainable. It also returns the running build commit, so you can tell what is deployed |
 
 ## Standards compliance at a glance
 
@@ -38,7 +38,7 @@ silently — anything not ✅ has a reason and a route.
 | Config-driven models | ✅ | The twelve-model roster, prompts, and price table all live in `config.json`; no model name appears in source |
 | Content filters on | ✅ | Foundry defaults, untouched. One preset deliberately trips them — see the README |
 | Alias + GUID, no PII | ✅ | No accounts, no state, nothing persisted per user. Runs are written to `results/`, which is gitignored |
-| "Demo only" indicator | ⚠️ | The page is self-evidently a model comparison and names no partner, but carries no explicit demo banner |
+| "Demo only" indicator | ✅ | Footer colophon states demonstration purposes only, not a Microsoft product or benchmark, no data collected — plus a source link and the running build commit |
 | `/docs` single source of truth | ⚠️ | This folder plus the ADRs; several areas are still covered by the root README rather than moved here |
 | Private Link | ❌ | Deliberate. Public endpoint, no data services, nothing to reach privately — [adr/0003](adr/0003-private-link-opt-in-by-default.md) makes this opt-in |
 | Rate limiting | ❌ | **Accepted risk, and the sharpest one here.** The endpoint is public and unauthenticated, and every run spends real tokens across twelve models. The budget alert below *notifies*, it does not cap. Real mitigation is operational: `make down` between demos. Add auth before leaving this running unattended |

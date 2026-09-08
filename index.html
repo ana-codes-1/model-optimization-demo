@@ -99,6 +99,10 @@
   footer { margin-top: 26px; padding-top: 16px; border-top: 1px solid var(--line);
            color: var(--dim); font-size: 14px; }
   footer b { color: var(--text); }
+  .colophon { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line);
+              font-size: 13px; }
+  .colophon a { color: var(--blue); }
+  #build { opacity: .7; }
 </style>
 </head>
 <body>
@@ -159,6 +163,13 @@
   GPT&#8209;5.4 and o3 rates come from the Azure Retail Prices API; Claude has no Azure
   token meter, so its rates are Anthropic's published prices. Azure bills aggregated
   daily meters, never single requests, so treat these as comparisons rather than invoices.
+  <div class="colophon">
+    <b>For demonstration purposes only.</b> Not a Microsoft product or benchmark.
+    Model answers are generated live and will vary between runs; nothing here is
+    advice, and no data is collected or stored.
+    &middot; <a href="https://github.com/ana-codes-1/model-optimization-demo">Source on GitHub</a>
+    <span id="build"></span>
+  </div>
 </footer>
 
 <script>
@@ -178,6 +189,7 @@ async function boot() {
   ROSTER = cfg.roster;
   PRESETS = cfg.presets || [];
   $('ma').textContent = cfg.max_attempts;
+  if (cfg.commit) $('build').textContent = ' \u00b7 build ' + cfg.commit;
 
   const sel = $('preset');
   PRESETS.forEach((p, i) => sel.appendChild(new Option(p.name, String(i))));
