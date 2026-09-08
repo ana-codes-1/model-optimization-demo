@@ -120,21 +120,47 @@ if `IDENTITY_ENDPOINT` is set it uses the platform's managed identity, otherwise
 back to whoever is signed in to the Azure CLI. It also binds `0.0.0.0` when hosted and
 `127.0.0.1` when not, and honours `PORT` and `AZURE_AI_ENDPOINT`.
 
+It is deployed to App Service as a container, at
+**https://model-optimization-demo.azurewebsites.net**.
+
 ```bash
-az containerapp up -n model-opt-demo -g <rg> --environment <env> \
-  --source . --ingress external --target-port 8000
-az containerapp identity assign -n model-opt-demo -g <rg> --system-assigned
+# build and push the image
+az acr build -r <acr> -t model-opt-demo:latest .
+
+# Linux containers need B1 or higher; F1 will not run them
+az appservice plan create -n <plan> -g <rg> --is-linux --sku B1 --location <region>
+az webapp create -n model-optimization-demo -g <rg> -p <plan> \
+  --container-image-name <acr>.azurecr.io/model-opt-demo:latest \
+  --assign-identity '[system]'
+
+# let the app pull from ACR with its own identity, and reach the model endpoint
+az role assignment create --assignee-object-id <principalId> \
+  --assignee-principal-type ServicePrincipal --role "AcrPull" --scope <acr-resource-id>
 az role assignment create --assignee-object-id <principalId> \
   --assignee-principal-type ServicePrincipal --role "Cognitive Services User" \
   --scope <foundry-resource-id>
+az webapp config set -n model-optimization-demo -g <rg> \
+  --generic-configurations '{"acrUseManagedIdentityCreds": true}'
+az webapp config appsettings set -n model-optimization-demo -g <rg> \
+  --settings WEBSITES_PORT=8000 AZURE_AI_ENDPOINT=<endpoint>
 ```
 
-**That role assignment is not optional.** The resource sets `disableLocalAuth=true`, so
-there is no API key to fall back on — without it the app starts fine and then 401s on
-every model call.
+**That second role assignment is not optional.** The resource sets `disableLocalAuth=true`,
+so there is no API key to fall back on — without it the app starts fine and then 401s on
+every model call. `az role assignment create` prints nothing on success, so confirm with
+`az role assignment list --assignee <principalId> --all -o table`.
 
-Scale to zero when you are not demoing (`--min-replicas 0`) and the cost goes to nothing,
-at the price of a cold start on the next click.
+Two things that will bite you. App Service quota is per region: if `appservice plan create`
+reports `Current Usage: 0 / Amount required: 1`, that region has no quota on the
+subscription and you need a different one — the app does not have to share a region with
+the model endpoint, since a cross-region hop is worth a few tens of milliseconds against
+calls that take seconds. And the plan bills whether or not anyone is using it, so stop it
+between demos:
+
+```bash
+az webapp stop  -n model-optimization-demo -g <rg>   # before
+az webapp start -n model-optimization-demo -g <rg>   # when you need it back
+```
 
 ## Adapting it to your own question
 
