@@ -17,8 +17,6 @@ from urllib.parse import parse_qs, urlparse
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 RESULTS_DIR = os.path.join(ROOT, "results")
-LAST_RUN = os.path.join(RESULTS_DIR, "last-run.json")
-SAMPLE_RUN = os.path.join(RESULTS_DIR, "sample-run.json")
 
 with open(os.path.join(ROOT, "config.json"), encoding="utf-8") as fh:
     CFG = json.load(fh)
@@ -240,8 +238,6 @@ def run_all(emit, task):
     payload = {"finished_at": time.strftime("%Y-%m-%d %H:%M:%S"),
                "task": task, "results": results}
     os.makedirs(RESULTS_DIR, exist_ok=True)
-    with open(LAST_RUN, "w", encoding="utf-8") as fh:
-        json.dump(payload, fh, indent=2)
     stamp = time.strftime("run-%Y%m%d-%H%M%S.json")
     with open(os.path.join(RESULTS_DIR, stamp), "w", encoding="utf-8") as fh:
         json.dump(payload, fh, indent=2)
@@ -305,15 +301,6 @@ class Handler(BaseHTTPRequestHandler):
                                         "pricing": CFG.get("pricing", {}),
                                         "max_attempts": CFG["max_attempts"]}),
                        "application/json")
-
-        elif path == "/replay":
-            # Fall back to the committed fixture so a fresh clone can replay offline.
-            source = LAST_RUN if os.path.exists(LAST_RUN) else SAMPLE_RUN
-            if not os.path.exists(source):
-                self._send(404, json.dumps({"error": "no saved run yet"}), "application/json")
-                return
-            with open(source, "rb") as fh:
-                self._send(200, fh.read(), "application/json")
 
         elif path == "/run":
             self.send_response(200)

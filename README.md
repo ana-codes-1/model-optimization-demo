@@ -100,8 +100,6 @@ python server.py                       # http://localhost:8000
 
 Edit the `roster` in `config.json` to match your own deployment names.
 
-No credentials, then click **Replay** — it renders the committed sample run offline.
-
 ### Other entry points
 
 ```bash
@@ -119,6 +117,11 @@ Each row shows a cost, and the bar can be scaled by cost or by tokens — the to
 next to the Run button. Cost is the better default, because a token axis quietly compares
 models whose rates differ by more than 100x: 1,000 nano tokens and 1,000 Opus tokens are
 not the same purchase.
+
+The figure on each row is **per 1,000 runs of the question**, not per run. A single run
+costs a few thousandths of a cent, and nobody can compare `$0.000094` against
+`$0.012345` while talking. At 1,000 runs the same gap reads as **9 cents against $12.35**,
+which is the sentence you actually want to say out loud.
 
 The number is **measured tokens × published rate**. The token counts are real — Azure
 returns them in every response, split into input and output. The rates live in
@@ -247,7 +250,7 @@ domain, where the wrong answer is the plausible one.
 | `verify.py` | Single raw call with the full unedited response |
 | `refresh_prices.py` | Re-checks the rates in `config.json` against the live Azure price feed |
 | `deploy-claude.json` | ARM template for deploying Anthropic models to Foundry |
-| `results/sample-run.json` | A real run, committed so Replay works offline |
+| `results/` | Every run is archived here as a timestamped JSON file |
 
 ## Notes on Foundry
 

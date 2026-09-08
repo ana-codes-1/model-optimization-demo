@@ -136,7 +136,6 @@
 
   <div class="controls">
     <button class="primary" id="run">Run all 12</button>
-    <button id="replay">Replay last</button>
     <span class="metric">
       Bar&nbsp;shows
       <button id="m-cost" class="metric-btn on">Cost</button><button
@@ -154,7 +153,9 @@
   the first stops the clock. Gold ring = cheapest correct answer. Click any row to read
   what the model said.
   <br>
-  Cost is a <b>list-price estimate</b>: measured token counts &times; published rates.
+  Dollar figures are <b>per 1,000 runs of this question</b> &mdash; one run costs a
+  fraction of a cent, which is hard to compare at a glance. They are
+  <b>list-price estimates</b>: measured token counts &times; published rates.
   GPT&#8209;5.4 and o3 rates come from the Azure Retail Prices API; Claude has no Azure
   token meter, so its rates are Anthropic's published prices. Azure bills aggregated
   daily meters, never single requests, so treat these as comparisons rather than invoices.
@@ -279,11 +280,16 @@ function drawSkeleton() {
   });
 }
 
+// Cost is shown per 1,000 runs of the question. A single run costs a small fraction of
+// a cent, and five leading zeros are impossible to compare at a glance; multiplying by
+// a realistic call volume turns the same numbers into ordinary money.
 function money(v) {
   if (v === null || v === undefined) return 'n/a';
   if (v === 0) return '$0';
-  if (v < 0.01) return '$' + v.toFixed(5).replace(/0+$/, '').replace(/\.$/, '');
-  return '$' + v.toFixed(4);
+  const per1k = v * 1000;
+  const digits = per1k < 0.01 ? 3 : 2;
+  return '$' + per1k.toFixed(digits)
+       + '<span style="font-weight:400;opacity:.6">/1k</span>';
 }
 
 function metricOf(res) {
@@ -344,7 +350,6 @@ function start() {
   RESULTS = {}; MAX_TOKENS = 1;
   drawSkeleton();
   $('run').disabled = true;
-  $('replay').disabled = true;
   const status = $('status');
   const t0 = Date.now();
   let n = 0;
@@ -368,41 +373,13 @@ function start() {
       + ((Date.now() - t0) / 1000).toFixed(1) + 's';
     es.close();
     $('run').disabled = false;
-    $('replay').disabled = false;
   });
   es.addEventListener('fatal', e => {
     showErr(JSON.parse(e.data).error);
     status.textContent = '';
     es.close();
     $('run').disabled = false;
-    $('replay').disabled = false;
   });
-}
-
-async function replay() {
-  const res = await fetch('/replay');
-  if (!res.ok) { $('status').textContent = 'No saved run yet.'; return; }
-  const data = await res.json();
-
-  // Restore the question that produced this run, so the chart is never mislabelled.
-  if (data.task) {
-    $('q').value = data.task.question;
-    $('optA').value = data.task.options[0];
-    $('optB').value = data.task.options[1];
-    syncCorrect(data.task.correct);
-    autosize();
-    showKey(data.task.why);
-    const i = PRESETS.findIndex(p => p.question === data.task.question);
-    $('preset').value = i >= 0 ? String(i) : 'custom';
-  }
-
-  RESULTS = {}; MAX_TOKENS = 1;
-  drawSkeleton();
-  data.results.forEach(render);
-  markBest();
-  const passed = data.results.filter(r => r.passed).length;
-  $('status').textContent =
-    passed + ' of ' + data.results.length + ' correct \u00b7 replay of ' + data.finished_at;
 }
 
 $('preset').onchange = e => {
@@ -421,7 +398,6 @@ $('q').onkeydown = e => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); start(); }
 };
 $('run').onclick = start;
-$('replay').onclick = replay;
 
 function setMetric(m) {
   METRIC = m;
