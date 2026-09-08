@@ -73,6 +73,7 @@ module resources 'resources.bicep' = {
     monthlyBudgetUsd: monthlyBudgetUsd
     budgetContactEmail: budgetContactEmail
     foundryEndpoint: foundry.properties.endpoint
+    environmentName: environmentName
   }
 }
 

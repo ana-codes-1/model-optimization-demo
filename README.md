@@ -158,6 +158,9 @@ Deployment is [`azd`](https://aka.ms/azd) over the Bicep in [`infra/`](infra/):
 ```bash
 azd auth login
 
+# the azd environment name becomes the hostname: <name>.azurewebsites.net
+azd env new model-optimization-demo
+
 # the Foundry account is referenced, not provisioned - see ADR 0008
 azd env set AZURE_FOUNDRY_ACCOUNT        <account-name>
 azd env set AZURE_FOUNDRY_RESOURCE_GROUP <resource-group>

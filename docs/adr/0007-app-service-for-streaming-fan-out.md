@@ -32,6 +32,9 @@
 - Consequences:
   - Good: `azd up` provisions and deploys from a clean clone with no
     registry, no image tag to remember, and no `WEBSITES_PORT` wiring.
+  - Good: the web app is named from the azd environment, so the public URL is
+    `<environment-name>.azurewebsites.net` — something a presenter can say out
+    loud. Picking the environment name picks the hostname.
   - Good: `alwaysOn` keeps the process warm, so the first question of a demo
     isn't paying a cold start in front of an audience.
   - Bad: deviates from the skill's stated compute menu, so anyone reading this

@@ -24,6 +24,9 @@ param budgetContactEmail string
 @description('AI Foundry endpoint the app calls for every model in the roster.')
 param foundryEndpoint string
 
+@description('azd environment name. Used verbatim as the web app name, so the public hostname is <environmentName>.azurewebsites.net — a name you can say out loud on stage (docs/adr/0007). Must be globally unique.')
+param environmentName string
+
 @description('App Service plan SKU. B1 is the smallest tier that stays warm between demos; a cold start is a bad look on stage.')
 param appServiceSku string = 'B1'
 
@@ -112,7 +115,9 @@ resource plan 'Microsoft.Web/serverfarms@2023-12-01' = {
 }
 
 resource web 'Microsoft.Web/sites@2023-12-01' = {
-  name: 'app-${resourceToken}'
+  // Named from the azd environment rather than a hash: this URL gets read out
+  // to partners, and "app-h4k2mn7q3.azurewebsites.net" is not a URL you can say.
+  name: environmentName
   location: location
   // azd matches this tag to the service in azure.yaml to know where to deploy.
   tags: union(tags, { 'azd-service-name': 'web' })
