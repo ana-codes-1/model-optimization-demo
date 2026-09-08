@@ -153,7 +153,8 @@ if `IDENTITY_ENDPOINT` is set it uses the platform's managed identity, otherwise
 back to whoever is signed in to the Azure CLI. It binds `0.0.0.0` when hosted and
 `127.0.0.1` when not, and honours `PORT` and `AZURE_AI_ENDPOINT`.
 
-Deployment is [`azd`](https://aka.ms/azd) over the Bicep in [`infra/`](infra/):
+Deployment is [`azd`](https://aka.ms/azd) over the Bicep in [`infra/`](infra/). The demo is
+live at **https://model-optimization-demo.azurewebsites.net**.
 
 ```bash
 azd auth login
