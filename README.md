@@ -1,7 +1,7 @@
 # Model Optimization Demo
 
-One trick question, sixteen model configurations, measured in parallel. Pass/fail and token
-cost land on a live bar chart in about half a minute.
+One trick question, twenty model configurations, measured in parallel. Pass/fail and token
+cost land on a live bar chart in under a minute.
 
 The question:
 
@@ -63,18 +63,35 @@ Four things fall out of that table:
 pass/fail. That is a finding, not a bug — it is the argument for measuring rather than
 assuming, and for treating any n=1 evaluation with suspicion.
 
-The four single-setting models were added later, so they come from a separate run:
+The eight models outside the OpenAI and Anthropic families were added later, so they come
+from a separate run. Four of them are paired the same way the table above is:
 
-| Model | Setting | Result | Attempts | Tokens |
-|---|---|---|---|---|
-| MAI Thinking 1 | thinking fixed | **PASS** | 1 | 212 |
-| Grok 4.1 Fast | reasoning fixed | **PASS** | 1 | 463 |
-| Kimi K2.6 | single setting | **PASS** | 1 | 2,252 |
-| DeepSeek V4 Flash | single setting | FAIL | 3 | 234 |
+| Model | Setting | Result | Attempts | Tokens | Per 1k runs |
+|---|---|---|---|---|---|
+| MAI Thinking 1 | thinking fixed | **PASS** | 1 | 268 | $1.74 |
+| Phi 4 Reasoning | single setting | **PASS** | 1 | 2,393 | $1.09 |
+| Grok 4.1 Fast | reasoning on | **PASS** | 1 | 663 | $0.32 |
+| Grok 4.1 Fast | reasoning off | FAIL | 3 | 248 | $0.08 |
+| Kimi K2 | version 2.5 | **PASS** | 3 | 2,548 | $7.95 |
+| Kimi K2 | version 2.6 | FAIL | 3 | 1,391 | $5.54 |
+| DeepSeek V4 | flash | **PASS** | 3 | 237 | **$0.05** |
+| DeepSeek V4 | pro | FAIL | 3 | 238 | $0.63 |
 
-That run makes the cost argument better than the pairs do. Grok and Kimi both got it
-right; Kimi spent **45x more money** doing so. Being correct is table stakes — the
-question the chart actually answers is what correct costs you.
+**The Grok pair is the single best exhibit on the board.** It is the same model at the
+same published rate, and the only difference is whether reasoning is switched on. On it
+answers correctly the first time for 32 cents per thousand runs; off it answers wrongly
+three times in a row. That is the entire thesis of the demo in two adjacent rows, with
+the model held constant so nobody can attribute the gap to anything else.
+
+The other two pairs make the argument the partner is least prepared for: **newer and
+dearer both lost.** Kimi K2.5 beat its own successor K2.6, and DeepSeek V4 Flash beat V4
+Pro at a twelfth of the price. Cheapest correct answer on the entire board is Flash at
+five cents per thousand runs — against Claude Opus 5 at $2.06 for the same verdict.
+
+Phi 4 Reasoning is worth pointing at for a different reason. It is a small model that
+was right on the first attempt, but it burned 2,393 tokens and about forty seconds to
+get there. It is cheap in dollars and expensive in latency, which is a trade-off the
+chart shows and a single "which model is best" answer never could.
 
 ## How it works
 
@@ -83,7 +100,7 @@ browser  ──▶  server.py  ──HTTPS──▶  Azure AI Foundry
               (stdlib only)          one resource, N deployments
 ```
 
-- `server.py` fans all sixteen configurations out at once through a `ThreadPoolExecutor`
+- `server.py` fans all twenty configurations out at once through a `ThreadPoolExecutor`
   and streams each result over SSE the moment it lands, so bars fill in fastest-first.
 - Scoring is deterministic. The prompt demands a final line of `ANSWER: WALK` or
   `ANSWER: DRIVE`; the scorer takes the last tag it finds, falling back to an alias table
@@ -133,16 +150,10 @@ trust one.
 
 ### What the dollar figures mean
 
-Each row draws **two** bars, one on top of the other: a wide pale bar for tokens and a
-narrower coloured bar for cost, each scaled to its own largest value. Showing both at once
-beats a toggle, because the *gap* between them is itself the finding — when the cost bar
-overhangs the token bar the model is dear per token, and when it falls short it is cheap.
-Grok is the clearest example on the board: a long token bar with a stub of a cost bar,
-meaning it thought hard for almost no money. Kimi maxes out both.
-
-That gap is a fair comparison across rows even though the two series have different units,
-because both are normalised the same way for every model. What it is *not* is an absolute
-ratio — do not read "twice as long" as "twice the rate".
+Each row shows a cost, and the bar can be scaled by cost or by tokens — the toggle sits
+next to the Run button. Cost is the better default, because a token axis quietly compares
+models whose rates differ by more than 100x: 1,000 nano tokens and 1,000 Opus tokens are
+not the same purchase.
 
 The figure on each row is **per 1,000 runs of the question**, not per run. A single run
 costs a few thousandths of a cent, and nobody can compare `$0.000094` against
@@ -155,8 +166,8 @@ returns them in every response, split into input and output. The rates live in
 
 | Models | Rate source | Verifiable? |
 | --- | --- | --- |
-| GPT-5.4, mini, nano, o3, MAI Thinking 1, Grok 4.1 Fast | Azure Retail Prices API, `serviceName eq 'Foundry Models'`, Global SKU | Yes — `python refresh_prices.py` |
-| Kimi K2.6, DeepSeek V4 Flash | Same feed, but **DataZone** meters — no Global meter is published for these | Partially — the script checks the DataZone rate |
+| GPT-5.4, mini, nano, o3, MAI Thinking 1, Grok 4.1 Fast (both), Phi 4 Reasoning | Azure Retail Prices API, `serviceName eq 'Foundry Models'`, Global SKU | Yes — `python refresh_prices.py` |
+| Kimi K2.5 and K2.6, DeepSeek V4 Flash and Pro | Same feed, but **DataZone** meters — no Global meter is published for these | Partially — the script checks the DataZone rate |
 | Claude Opus 5, Haiku 4.5 | Anthropic's published price list | By eye, at the URL the script prints |
 
 That split is not an oversight. Claude has **no token meter in the Azure feed at all** —
@@ -215,7 +226,7 @@ sets `disableLocalAuth=true`, so there is no API key to fall back on, and withou
 the app starts fine and then 401s on every model call. Granting the same role to the
 signed-in developer is what lets `make dev` reach the real models locally.
 
-The Foundry account itself is *not* provisioned here — it and its sixteen deployments
+The Foundry account itself is *not* provisioned here — it and its fifteen deployments
 predate this repo. [ADR 0008](docs/adr/0008-existing-foundry-account.md) explains why.
 The two `azd env set` values above are deliberately not defaulted in
 `infra/main.bicepparam`: the account name is also the endpoint hostname, and this repo
@@ -274,7 +285,7 @@ the laptop question. Between the two you can show a partner that "which model is
 has no answer independent of what they intend to ask it.
 
 Avoid famous puzzles. Bat-and-ball and the surgeon riddle are in every training set;
-running them here returns 12 of 12 passing on the first attempt, which measures
+running them here returns every configuration passing on the first attempt, which measures
 memorisation rather than reasoning. The useful test is a question shaped like your own
 domain, where the wrong answer is the plausible one.
 
@@ -283,7 +294,7 @@ domain, where the wrong answer is the plausible one.
 | File | Purpose |
 |---|---|
 | `config.example.json` | Endpoint, task, and the roster. The only file most people edit |
-| `server.py` | Backend: fan-out, both API transports, scoring, SSE. Standard library only |
+| `server.py` | Backend: fan-out, all three API transports, scoring, SSE. Standard library only |
 | `index.html` | Frontend: chart and controls. No framework, no build step |
 | `smoke_test.py` | CLI runner |
 | `verify.py` | Single raw call with the full unedited response |
@@ -323,11 +334,20 @@ Worth knowing if you are rebuilding this:
   paths and api-versions: `/openai/deployments/{name}/chat/completions` versus
   `/anthropic/v1/messages`. Sending the wrong api-version returns a 404, which is a
   confusing way to learn this.
-- There is a **third** route. MAI, Grok, Kimi and DeepSeek are not reachable on the OpenAI
-  path — MAI returns `request_validation_error` there. They use
+- There is a **third** route. MAI, Phi, Grok, Kimi and DeepSeek are not reachable on the
+  OpenAI path — MAI returns `request_validation_error` there. They use
   `/models/chat/completions`, where the deployment is named in the **body** as `model`
   rather than in the URL. The request and response shapes are otherwise OpenAI's, so the
   parsing is shared.
+- **Reasoning is sometimes a separate deployment, not a parameter.** xAI ships
+  `grok-4-1-fast-reasoning` and `grok-4-1-fast-non-reasoning` as two distinct models that
+  bill against the *same* Grok 4.1 meter. So the cleanest reasoning-on/off comparison in
+  this repo is not a `params` difference at all — it is two roster rows pointing at two
+  deployments, at an identical published rate.
+- **Meter names are not consistent even within one family.** DeepSeek V4 Flash uses
+  `FW Deepseek-v4-Flash Cd In DZ Tokens` (lowercase `v4`, `Cd In`) while V4 Pro uses
+  `FW DeepSeek-V4-Pro Ch Inp DZ Tokens` (capitalised, `Ch Inp`). Do not pattern-match
+  these; look each one up.
 - **Token accounting is not consistent between vendors, and the difference is silent.**
   xAI reports reasoning tokens *outside* `completion_tokens`, so `total = prompt +
   completion + reasoning`; OpenAI and MAI report them inside. Deriving output as

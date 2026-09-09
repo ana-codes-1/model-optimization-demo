@@ -42,13 +42,28 @@ METERS = {
     # config.json mirrors the input rate rather than inventing a discount.
     "grok-4-1-fast-reasoning": ("Grok 4.1 Inp Glbl Tokens",
                                 "Grok 4.1 Outp Glbl Tokens", None, 1_000),
-    # These two are deployed GlobalStandard but only DataZone meters are
+    # Both Grok variants bill against the same Grok 4.1 meter pair - reasoning is
+    # a routing choice, not a separate SKU, so the rate is identical either way.
+    "grok-4-1-fast-non-reasoning": ("Grok 4.1 Inp Glbl Tokens",
+                                    "Grok 4.1 Outp Glbl Tokens", None, 1_000),
+    # Phi is the one small model here with its own first-party meter, and no
+    # cached-input meter, so cached mirrors input as it does for Grok.
+    "Phi-4-reasoning": ("Phi-4-reasoning-Input Tokens",
+                        "Phi-4-reasoning-Output Tokens", None, 1_000),
+    # These four are deployed GlobalStandard but only DataZone meters are
     # published, so this checks the closest figure that exists, not the exact one.
+    "Kimi-K2.5":    ("FW Kimi K2.5 Inp DZ Tokens", "FW Kimi K2.5 Outp DZ Tokens",
+                     "FW Kimi K2.5 Cache Inp DZ Tokens", 1_000),
     "Kimi-K2.6":    ("FW Kimi K2.6 Inp DZ Tokens", "FW Kimi K2.6 Outp DZ Tokens",
                      "FW Kimi K2.6 Cache Inp DZ Tokens", 1_000),
     "DeepSeek-V4-Flash": ("FW Deepseek-v4-Flash In DZ Tokens",
                           "FW Deepseek-v4-Flash Opt DZ Tokens",
                           "FW Deepseek-v4-Flash Cd In DZ Tokens", 1_000),
+    # Note "Ch Inp" here where Flash uses "Cd In" - the meter naming is not
+    # consistent even between two models in the same family.
+    "DeepSeek-V4-Pro": ("FW DeepSeek-V4-Pro Inp DZ Tokens",
+                        "FW DeepSeek-V4-Pro Outp DZ Tokens",
+                        "FW DeepSeek-V4-Pro Ch Inp DZ Tokens", 1_000),
 }
 
 

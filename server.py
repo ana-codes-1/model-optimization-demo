@@ -1,4 +1,4 @@
-"""Model optimization demo: one question, sixteen deployments, pass/fail + tokens.
+"""Model optimization demo: one question, twenty deployments, pass/fail + tokens.
 
 Stdlib only. Run:  python server.py   ->  http://localhost:8000
 """
