@@ -1,4 +1,4 @@
-"""Model optimization demo: one question, twelve deployments, pass/fail + tokens.
+"""Model optimization demo: one question, sixteen deployments, pass/fail + tokens.
 
 Stdlib only. Run:  python server.py   ->  http://localhost:8000
 """
@@ -122,6 +122,31 @@ def _post(url, body, extra_headers=None, retry_on_401=True):
         raise RuntimeError("HTTP %s: %s" % (err.code, err.read().decode()[:200]))
 
 
+def _openai_usage(usage, text):
+    """Normalise an OpenAI-shaped usage block.
+
+    Two vendor quirks make the obvious reading wrong:
+    - xAI reports reasoning tokens *outside* completion_tokens, so total is
+      prompt + completion + reasoning. OpenAI and MAI report them inside.
+      Deriving output from total - prompt is correct for both.
+    - xAI can report more cached tokens than prompt tokens, which would make
+      the billed-input term negative, so cached is clamped.
+    """
+    prompt = usage.get("prompt_tokens", 0) or 0
+    completion = usage.get("completion_tokens", 0) or 0
+    total = usage.get("total_tokens", 0) or 0
+    out = max(total - prompt, completion) if total else completion
+    cached = (usage.get("prompt_tokens_details") or {}).get("cached_tokens", 0) or 0
+    return {
+        "text": text,
+        "tokens": total or (prompt + out),
+        "tokens_in": prompt,
+        "tokens_out": out,
+        "tokens_cached": min(cached, prompt),
+        "thinking": (usage.get("completion_tokens_details") or {}).get("reasoning_tokens", 0) or 0,
+    }
+
+
 def call_openai(entry, prompt):
     url = "%s/openai/deployments/%s/chat/completions?api-version=%s" % (
         CFG["endpoint"], entry["deployment"], CFG["openai_api_version"])
@@ -131,16 +156,26 @@ def call_openai(entry, prompt):
     }
     body.update(entry.get("params", {}))
     data = _post(url, body)
-    usage = data.get("usage", {})
-    details = usage.get("prompt_tokens_details") or {}
-    return {
-        "text": (data["choices"][0]["message"].get("content") or "").strip(),
-        "tokens": usage.get("total_tokens", 0),
-        "tokens_in": usage.get("prompt_tokens", 0),
-        "tokens_out": usage.get("completion_tokens", 0),
-        "tokens_cached": details.get("cached_tokens", 0) or 0,
-        "thinking": (usage.get("completion_tokens_details") or {}).get("reasoning_tokens", 0),
+    text = (data["choices"][0]["message"].get("content") or "").strip()
+    return _openai_usage(data.get("usage", {}), text)
+
+
+def call_inference(entry, prompt):
+    """Azure AI model inference route, for everything that is not an OpenAI or
+    Anthropic deployment — MAI, Grok, Kimi, DeepSeek. Same request and response
+    shape as OpenAI, but a single shared path with the deployment named in the
+    body rather than the URL."""
+    url = "%s/models/chat/completions?api-version=%s" % (
+        CFG["endpoint"], CFG["inference_api_version"])
+    body = {
+        "model": entry["deployment"],
+        "messages": [{"role": "user", "content": prompt}],
+        "max_completion_tokens": CFG["openai_max_completion_tokens"],
     }
+    body.update(entry.get("params", {}))
+    data = _post(url, body)
+    text = (data["choices"][0]["message"].get("content") or "").strip()
+    return _openai_usage(data.get("usage", {}), text)
 
 
 def call_anthropic(entry, prompt):
@@ -219,7 +254,8 @@ def run_contestant(entry, task):
 
     for attempt in range(1, CFG["max_attempts"] + 1):
         try:
-            caller = call_anthropic if entry["vendor"] == "anthropic" else call_openai
+            caller = {"anthropic": call_anthropic,
+                      "inference": call_inference}.get(entry["vendor"], call_openai)
             res = caller(entry, prompt)
             ok, verdict = score(res["text"], task)
             total_tokens += res["tokens"]

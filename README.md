@@ -1,7 +1,7 @@
 # Model Optimization Demo
 
-One trick question, twelve model configurations, measured in parallel. Pass/fail and token
-cost land on a live bar chart in about twelve seconds.
+One trick question, sixteen model configurations, measured in parallel. Pass/fail and token
+cost land on a live bar chart in about half a minute.
 
 The question:
 
@@ -16,11 +16,17 @@ Picking a model by price tier or benchmark leaderboard is guesswork. This measur
 models you can actually deploy, against a question shaped like the ones you actually ask,
 and shows what each one costs to get it right — or to get it wrong repeatedly.
 
-Every model appears **twice**: once at its cheapest thinking setting, once at its most
+Six models appear **twice**: once at their cheapest thinking setting, once at their most
 expensive. Pairs sit adjacent in the chart so you compare a model against *itself* and can
 answer the only question that matters: **does more thinking help here?**
 
 Often it does not.
+
+Four more models — MAI Thinking 1, Grok 4.1 Fast, Kimi K2.6 and DeepSeek V4 Flash — sit
+below the pairs as single rows. They expose no thinking knob the API honours, so pairing
+them would be theatre. MAI in particular *accepts* `reasoning_effort` and silently ignores
+it: measured over four runs per setting, "low" averaged more reasoning tokens than "high".
+They are there for cross-vendor comparison, not for the thinking-knob question.
 
 ## What a run looks like
 
@@ -57,6 +63,19 @@ Four things fall out of that table:
 pass/fail. That is a finding, not a bug — it is the argument for measuring rather than
 assuming, and for treating any n=1 evaluation with suspicion.
 
+The four single-setting models were added later, so they come from a separate run:
+
+| Model | Setting | Result | Attempts | Tokens |
+|---|---|---|---|---|
+| MAI Thinking 1 | thinking fixed | **PASS** | 1 | 212 |
+| Grok 4.1 Fast | reasoning fixed | **PASS** | 1 | 463 |
+| Kimi K2.6 | single setting | **PASS** | 1 | 2,252 |
+| DeepSeek V4 Flash | single setting | FAIL | 3 | 234 |
+
+That run makes the cost argument better than the pairs do. Grok and Kimi both got it
+right; Kimi spent **45x more money** doing so. Being correct is table stakes — the
+question the chart actually answers is what correct costs you.
+
 ## How it works
 
 ```
@@ -64,7 +83,7 @@ browser  ──▶  server.py  ──HTTPS──▶  Azure AI Foundry
               (stdlib only)          one resource, N deployments
 ```
 
-- `server.py` fans all twelve configurations out at once through a `ThreadPoolExecutor`
+- `server.py` fans all sixteen configurations out at once through a `ThreadPoolExecutor`
   and streams each result over SSE the moment it lands, so bars fill in fastest-first.
 - Scoring is deterministic. The prompt demands a final line of `ANSWER: WALK` or
   `ANSWER: DRIVE`; the scorer takes the last tag it finds, falling back to an alias table
@@ -126,17 +145,25 @@ which is the sentence you actually want to say out loud.
 
 The number is **measured tokens × published rate**. The token counts are real — Azure
 returns them in every response, split into input and output. The rates live in
-`config.json` under `pricing`, in USD per million tokens, and come from two places:
+`config.json` under `pricing`, in USD per million tokens, and come from three places:
 
 | Models | Rate source | Verifiable? |
 | --- | --- | --- |
-| GPT-5.4, mini, nano, o3 | Azure Retail Prices API, `serviceName eq 'Foundry Models'`, Global SKU | Yes — `python refresh_prices.py` |
+| GPT-5.4, mini, nano, o3, MAI Thinking 1, Grok 4.1 Fast | Azure Retail Prices API, `serviceName eq 'Foundry Models'`, Global SKU | Yes — `python refresh_prices.py` |
+| Kimi K2.6, DeepSeek V4 Flash | Same feed, but **DataZone** meters — no Global meter is published for these | Partially — the script checks the DataZone rate |
 | Claude Opus 5, Haiku 4.5 | Anthropic's published price list | By eye, at the URL the script prints |
 
 That split is not an oversight. Claude has **no token meter in the Azure feed at all** —
 on Azure it bills as `claude-consumption-units` rather than per token — so there is no
 Microsoft-published per-token rate to look up. Anthropic's list price is the same page the
 Foundry portal links to for those models, and it is the best available answer.
+
+Two smaller caveats, both marked in `config.json` so they are not quietly forgotten. Kimi
+and DeepSeek are *deployed* GlobalStandard but only publish DataZone meters, so their rates
+are the closest published figure rather than an exact one; they carry
+`"source": "azure-retail-datazone"`. And xAI publishes no cached-input meter, so Grok's
+cached rate mirrors its input rate — caching is treated as neutral rather than credited
+with a discount that may not exist.
 
 `refresh_prices.py` re-pulls every Azure rate and diffs it against `config.json`, exiting
 non-zero if anything moved. Run it before a demo if the numbers are going on a slide.
@@ -182,7 +209,7 @@ sets `disableLocalAuth=true`, so there is no API key to fall back on, and withou
 the app starts fine and then 401s on every model call. Granting the same role to the
 signed-in developer is what lets `make dev` reach the real models locally.
 
-The Foundry account itself is *not* provisioned here — it and its twelve deployments
+The Foundry account itself is *not* provisioned here — it and its sixteen deployments
 predate this repo. [ADR 0008](docs/adr/0008-existing-foundry-account.md) explains why.
 The two `azd env set` values above are deliberately not defaulted in
 `infra/main.bicepparam`: the account name is also the endpoint hostname, and this repo
@@ -290,6 +317,21 @@ Worth knowing if you are rebuilding this:
   paths and api-versions: `/openai/deployments/{name}/chat/completions` versus
   `/anthropic/v1/messages`. Sending the wrong api-version returns a 404, which is a
   confusing way to learn this.
+- There is a **third** route. MAI, Grok, Kimi and DeepSeek are not reachable on the OpenAI
+  path — MAI returns `request_validation_error` there. They use
+  `/models/chat/completions`, where the deployment is named in the **body** as `model`
+  rather than in the URL. The request and response shapes are otherwise OpenAI's, so the
+  parsing is shared.
+- **Token accounting is not consistent between vendors, and the difference is silent.**
+  xAI reports reasoning tokens *outside* `completion_tokens`, so `total = prompt +
+  completion + reasoning`; OpenAI and MAI report them inside. Deriving output as
+  `max(total - prompt, completion)` is correct for both. Grok has also been observed
+  reporting **more cached tokens than prompt tokens**, which makes the billed-input term
+  go negative unless you clamp it. Both fixes live in `_openai_usage()`.
+- **A model can accept a parameter and ignore it.** `MAI-Thinking-1` takes
+  `reasoning_effort` without error and does nothing with it — measured over four runs per
+  setting, "low" averaged 183 reasoning tokens and "high" averaged 108. Verify a knob
+  moves something before you build a comparison on it.
 - With thinking enabled, Anthropic responses put a `thinking` block **before** the `text`
   block. Reading `content[0]` will silently give you the wrong thing.
 - Anthropic wants `max_tokens`; OpenAI reasoning models want `max_completion_tokens`.

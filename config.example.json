@@ -2,12 +2,13 @@
   "endpoint": "https://YOUR-FOUNDRY-RESOURCE.cognitiveservices.azure.com",
   "openai_api_version": "2025-04-01-preview",
   "anthropic_api_version": "2026-05-01",
+  "inference_api_version": "2024-05-01-preview",
   "anthropic_version_header": "2023-06-01",
   "max_attempts": 3,
   "timeout_seconds": 60,
   "openai_max_completion_tokens": 4000,
   "anthropic_max_tokens": 8000,
-  "_pricing_note": "USD per 1,000,000 tokens. Thinking tokens are billed as output. 'azure-retail' rates were pulled from the public Azure Retail Prices API (serviceName 'Foundry Models', Global SKU) and are identical across all 25 regions that carry the meter, including eastus2. Claude has no token meter in that feed at all - it bills on Azure as consumption units - so its rates are Anthropic's published list prices, which is the same page the Foundry portal links to. Every figure here is a LIST price: it ignores discounts, commitments and the fact that Azure bills aggregated daily meters rather than individual requests.",
+  "_pricing_note": "USD per 1,000,000 tokens. Thinking tokens are billed as output. 'azure-retail' rates were pulled from the public Azure Retail Prices API (serviceName 'Foundry Models', Global SKU) and are identical across all 25 regions that carry the meter, including eastus2. Claude has no token meter in that feed at all - it bills on Azure as consumption units - so its rates are Anthropic's published list prices, which is the same page the Foundry portal links to. Every figure here is a LIST price: it ignores discounts, commitments and the fact that Azure bills aggregated daily meters rather than individual requests. Two models - Kimi K2.6 and DeepSeek V4 Flash - publish only DataZone meters, so their rates are marked 'azure-retail-datazone' and are the closest published figure to what a GlobalStandard deployment bills, not an exact match. Grok publishes no cached-input meter, so its cached rate mirrors its input rate.",
   "pricing": {
     "gpt-5.4": {
       "in": 2.5,
@@ -50,6 +51,34 @@
       "cached_in": 0.1,
       "source": "anthropic-list",
       "meter": "no Azure token meter; anthropic published price"
+    },
+    "MAI-Thinking-1": {
+      "in": 2.0,
+      "out": 8.0,
+      "cached_in": 0.2,
+      "source": "azure-retail",
+      "meter": "MAI-Thinking-1 Inp/Opt/Cd Inp glbl 1M Tokens"
+    },
+    "grok-4-1-fast-reasoning": {
+      "in": 0.2,
+      "out": 0.5,
+      "cached_in": 0.2,
+      "source": "azure-retail",
+      "meter": "Grok 4.1 Inp/Outp Glbl Tokens (per 1K); no cached meter published"
+    },
+    "Kimi-K2.6": {
+      "in": 1.045,
+      "out": 4.4,
+      "cached_in": 0.176,
+      "source": "azure-retail-datazone",
+      "meter": "FW Kimi K2.6 Inp/Outp/Cache Inp DZ Tokens (per 1K)"
+    },
+    "DeepSeek-V4-Flash": {
+      "in": 0.15,
+      "out": 0.31,
+      "cached_in": 0.03,
+      "source": "azure-retail-datazone",
+      "meter": "FW Deepseek-v4-Flash In/Opt/Cd In DZ Tokens (per 1K)"
     }
   },
   "task": {
@@ -243,6 +272,38 @@
       "params": {
         "reasoning_effort": "high"
       }
+    },
+    {
+      "id": "MAI-Thinking-1",
+      "label": "MAI Thinking 1",
+      "deployment": "MAI-Thinking-1",
+      "vendor": "inference",
+      "badge": "thinking fixed",
+      "params": {}
+    },
+    {
+      "id": "grok-4-1-fast",
+      "label": "Grok 4.1 Fast",
+      "deployment": "grok-4-1-fast-reasoning",
+      "vendor": "inference",
+      "badge": "reasoning fixed",
+      "params": {}
+    },
+    {
+      "id": "kimi-k2.6",
+      "label": "Kimi K2.6",
+      "deployment": "Kimi-K2.6",
+      "vendor": "inference",
+      "badge": "single setting",
+      "params": {}
+    },
+    {
+      "id": "deepseek-v4-flash",
+      "label": "DeepSeek V4 Flash",
+      "deployment": "DeepSeek-V4-Flash",
+      "vendor": "inference",
+      "badge": "single setting",
+      "params": {}
     }
   ]
 }

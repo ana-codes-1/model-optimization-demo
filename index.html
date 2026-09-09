@@ -139,7 +139,7 @@
   </div>
 
   <div class="controls">
-    <button class="primary" id="run">Run all 12</button>
+    <button class="primary" id="run">Run all</button>
     <span class="metric">
       Bar&nbsp;shows
       <button id="m-cost" class="metric-btn on">Cost</button><button
@@ -188,6 +188,7 @@ async function boot() {
   const cfg = await (await fetch('/config')).json();
   ROSTER = cfg.roster;
   PRESETS = cfg.presets || [];
+  $('run').textContent = 'Run all ' + ROSTER.length;
   $('ma').textContent = cfg.max_attempts;
   if (cfg.commit) $('build').textContent = ' \u00b7 build ' + cfg.commit;
 
@@ -270,8 +271,10 @@ function drawSkeleton() {
   const chart = document.getElementById('chart');
   chart.innerHTML = '';
   ROSTER.forEach((m, i) => {
-    // Blank line between model pairs so the low/high ladder reads vertically.
-    if (i > 0 && i % 2 === 0) chart.appendChild(el('div', 'sep'));
+    // Blank line whenever the model changes, so a low/high pair stays welded
+    // together and single-setting models each stand alone. Keying on the label
+    // rather than the index keeps this correct however the roster is composed.
+    if (i > 0 && m.label !== ROSTER[i - 1].label) chart.appendChild(el('div', 'sep'));
 
     const row = el('div', 'row');
     row.id = 'row-' + m.id;

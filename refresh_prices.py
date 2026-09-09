@@ -35,6 +35,20 @@ METERS = {
                      "5.4 nano cd Inp Gl 1M Tokens", 1_000_000),
     "o3":           ("o3 0416 Inp glbl Tokens", "o3 0416 Outp glbl Tokens",
                      "o3 0416 cached Inp glbl Tokens", 1_000),
+    "MAI-Thinking-1": ("MAI-Thinking-1 Inp glbl 1M Tokens",
+                       "MAI-Thinking-1 Opt glbl 1M Tokens",
+                       "MAI-Thinking-1 Cd Inp glbl 1M Tokens", 1_000_000),
+    # xAI publishes no cached-input meter, so that field is unverifiable and
+    # config.json mirrors the input rate rather than inventing a discount.
+    "grok-4-1-fast-reasoning": ("Grok 4.1 Inp Glbl Tokens",
+                                "Grok 4.1 Outp Glbl Tokens", None, 1_000),
+    # These two are deployed GlobalStandard but only DataZone meters are
+    # published, so this checks the closest figure that exists, not the exact one.
+    "Kimi-K2.6":    ("FW Kimi K2.6 Inp DZ Tokens", "FW Kimi K2.6 Outp DZ Tokens",
+                     "FW Kimi K2.6 Cache Inp DZ Tokens", 1_000),
+    "DeepSeek-V4-Flash": ("FW Deepseek-v4-Flash In DZ Tokens",
+                          "FW Deepseek-v4-Flash Opt DZ Tokens",
+                          "FW Deepseek-v4-Flash Cd In DZ Tokens", 1_000),
 }
 
 
@@ -65,6 +79,9 @@ def main():
             print("  %-16s not in config.json - skipped" % model)
             continue
         for field, meter in (("in", m_in), ("out", m_out), ("cached_in", m_cached)):
+            if meter is None:
+                print("  %-16s %-10s no meter published - not checkable" % (model, field))
+                continue
             live = fetch(meter)
             if live is None:
                 print("  %-16s %-10s METER NOT FOUND: %s" % (model, field, meter))
