@@ -133,10 +133,16 @@ trust one.
 
 ### What the dollar figures mean
 
-Each row shows a cost, and the bar can be scaled by cost or by tokens — the toggle sits
-next to the Run button. Cost is the better default, because a token axis quietly compares
-models whose rates differ by more than 100x: 1,000 nano tokens and 1,000 Opus tokens are
-not the same purchase.
+Each row draws **two** bars, one on top of the other: a wide pale bar for tokens and a
+narrower coloured bar for cost, each scaled to its own largest value. Showing both at once
+beats a toggle, because the *gap* between them is itself the finding — when the cost bar
+overhangs the token bar the model is dear per token, and when it falls short it is cheap.
+Grok is the clearest example on the board: a long token bar with a stub of a cost bar,
+meaning it thought hard for almost no money. Kimi maxes out both.
+
+That gap is a fair comparison across rows even though the two series have different units,
+because both are normalised the same way for every model. What it is *not* is an absolute
+ratio — do not read "twice as long" as "twice the rate".
 
 The figure on each row is **per 1,000 runs of the question**, not per run. A single run
 costs a few thousandths of a cent, and nobody can compare `$0.000094` against
