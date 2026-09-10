@@ -1,7 +1,7 @@
 # Model Optimization Demo
 
 One trick question, twenty model configurations, measured in parallel. Pass/fail and token
-cost land on a live bar chart in under a minute.
+cost land on a live bar chart in under twenty seconds.
 
 The question:
 
@@ -68,30 +68,32 @@ from a separate run. Four of them are paired the same way the table above is:
 
 | Model | Setting | Result | Attempts | Tokens | Per 1k runs |
 |---|---|---|---|---|---|
-| MAI Thinking 1 | thinking fixed | **PASS** | 1 | 268 | $1.74 |
-| Phi 4 Reasoning | single setting | **PASS** | 1 | 2,393 | $1.09 |
-| Grok 4.1 Fast | reasoning on | **PASS** | 1 | 663 | $0.32 |
-| Grok 4.1 Fast | reasoning off | FAIL | 3 | 248 | $0.08 |
-| Kimi K2 | version 2.5 | **PASS** | 3 | 2,548 | $7.95 |
-| Kimi K2 | version 2.6 | FAIL | 3 | 1,391 | $5.54 |
-| DeepSeek V4 | flash | **PASS** | 3 | 237 | **$0.05** |
-| DeepSeek V4 | pro | FAIL | 3 | 238 | $0.63 |
+| MAI Thinking 1 | thinking fixed | **PASS** | 1 | 217 | $1.42 |
+| Phi 4 | no reasoning | **PASS** | 1 | **124** | **$0.04** |
+| Grok 4.1 Fast | reasoning on | **PASS** | 1 | 591 | $0.28 |
+| Grok 4.1 Fast | reasoning off | FAIL | 3 | 241 | $0.08 |
+| Kimi K2 | version 2.5 | FAIL | 3 | 1,178 | $3.43 |
+| Kimi K2 | version 2.6 | **PASS** | 2 | 1,863 | $7.81 |
+| DeepSeek V4 | flash | FAIL | 3 | 225 | $0.05 |
+| DeepSeek V4 | pro | **PASS** | 3 | 258 | $0.70 |
 
-**The Grok pair is the single best exhibit on the board.** It is the same model at the
-same published rate, and the only difference is whether reasoning is switched on. On it
-answers correctly the first time for 32 cents per thousand runs; off it answers wrongly
-three times in a row. That is the entire thesis of the demo in two adjacent rows, with
-the model held constant so nobody can attribute the gap to anything else.
+**Phi 4 is the punchline.** It is the smallest model on the board, it has no reasoning
+mode at all, and it answered correctly on the first attempt for **four cents per thousand
+runs**. Claude Opus 5 also answered correctly, on the same run, for $2.24 — **fifty-six
+times the price for the same verdict.** If a partner takes one thing away, it is that
+their hardest-sounding question may not need their most expensive model.
 
-The other two pairs make the argument the partner is least prepared for: **newer and
-dearer both lost.** Kimi K2.5 beat its own successor K2.6, and DeepSeek V4 Flash beat V4
-Pro at a twelfth of the price. Cheapest correct answer on the entire board is Flash at
-five cents per thousand runs — against Claude Opus 5 at $2.06 for the same verdict.
+**The Grok pair is the most rigorous exhibit.** It is the same model at the same published
+rate, and the only difference is whether reasoning is switched on. On, it is right first
+try; off, it is wrong three times running. Because the model is held constant, nothing
+else can be blamed for the gap. This pair has behaved the same way on every run so far.
 
-Phi 4 Reasoning is worth pointing at for a different reason. It is a small model that
-was right on the first attempt, but it burned 2,393 tokens and about forty seconds to
-get there. It is cheap in dollars and expensive in latency, which is a trade-off the
-chart shows and a single "which model is best" answer never could.
+**The Kimi and DeepSeek pairs flipped between runs, and you should say so out loud.** In
+an earlier run K2.5 beat K2.6 and Flash beat Pro; in the run above both reversed. Neither
+direction is a property of the models — it is the same non-determinism described above,
+showing up in the place people are most tempted to draw a conclusion from one data point.
+Used honestly it is the strongest argument in the demo: **a single run is not evidence**,
+and a partner picking a model off one comparison is picking off noise.
 
 ## How it works
 
@@ -166,7 +168,7 @@ returns them in every response, split into input and output. The rates live in
 
 | Models | Rate source | Verifiable? |
 | --- | --- | --- |
-| GPT-5.4, mini, nano, o3, MAI Thinking 1, Grok 4.1 Fast (both), Phi 4 Reasoning | Azure Retail Prices API, `serviceName eq 'Foundry Models'`, Global SKU | Yes — `python refresh_prices.py` |
+| GPT-5.4, mini, nano, o3, MAI Thinking 1, Grok 4.1 Fast (both), Phi 4 | Azure Retail Prices API, `serviceName eq 'Foundry Models'`, Global SKU | Yes — `python refresh_prices.py` |
 | Kimi K2.5 and K2.6, DeepSeek V4 Flash and Pro | Same feed, but **DataZone** meters — no Global meter is published for these | Partially — the script checks the DataZone rate |
 | Claude Opus 5, Haiku 4.5 | Anthropic's published price list | By eye, at the URL the script prints |
 

@@ -17,6 +17,8 @@ published price list and have to be eyeballed at the URL printed below.
 import json
 import os
 import sys
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -48,8 +50,7 @@ METERS = {
                                     "Grok 4.1 Outp Glbl Tokens", None, 1_000),
     # Phi is the one small model here with its own first-party meter, and no
     # cached-input meter, so cached mirrors input as it does for Grok.
-    "Phi-4-reasoning": ("Phi-4-reasoning-Input Tokens",
-                        "Phi-4-reasoning-Output Tokens", None, 1_000),
+    "Phi-4": ("Phi-4-Input Tokens", "Phi-4-Output Tokens", None, 1_000),
     # These four are deployed GlobalStandard but only DataZone meters are
     # published, so this checks the closest figure that exists, not the exact one.
     "Kimi-K2.5":    ("FW Kimi K2.5 Inp DZ Tokens", "FW Kimi K2.5 Outp DZ Tokens",
@@ -68,13 +69,26 @@ METERS = {
 
 
 def fetch(meter):
-    """Return the consumption retail price for one meter in REGION, or None."""
+    """Return the consumption retail price for one meter in REGION, or None.
+
+    The retail feed rate-limits, so back off and retry on 429 rather than
+    dying half way through and leaving the operator unsure which rates checked.
+    """
     flt = ("serviceName eq 'Foundry Models' and armRegionName eq '%s' and meterName eq '%s'"
            % (REGION, meter.replace("'", "''")))
     url = BASE + "?" + urllib.parse.urlencode({"$filter": flt,
                                                "api-version": "2023-01-01-preview"})
-    with urllib.request.urlopen(url, timeout=60) as resp:
-        items = json.load(resp).get("Items", [])
+    for attempt in range(6):
+        try:
+            with urllib.request.urlopen(url, timeout=60) as resp:
+                items = json.load(resp).get("Items", [])
+            break
+        except urllib.error.HTTPError as e:
+            if e.code != 429 or attempt == 5:
+                raise
+            wait = 5 * (2 ** attempt)  # 5, 10, 20, 40, 80s
+            print("    rate limited, waiting %ds" % wait)
+            time.sleep(wait)
     prices = {i["retailPrice"] for i in items if i.get("type") == "Consumption"}
     if len(prices) != 1:
         return None  # missing, or ambiguous - either way, do not guess

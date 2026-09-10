@@ -80,13 +80,6 @@
       "source": "azure-retail-datazone",
       "meter": "FW Deepseek-v4-Flash In/Opt/Cd In DZ Tokens (per 1K)"
     },
-    "Phi-4-reasoning": {
-      "in": 0.125,
-      "out": 0.5,
-      "cached_in": 0.125,
-      "source": "azure-retail",
-      "meter": "Phi-4-reasoning-Input/Output Tokens (per 1K); no cached meter published"
-    },
     "grok-4-1-fast-non-reasoning": {
       "in": 0.2,
       "out": 0.5,
@@ -107,6 +100,13 @@
       "cached_in": 0.165,
       "source": "azure-retail-datazone",
       "meter": "FW DeepSeek-V4-Pro Inp/Outp/Ch Inp DZ Tokens (per 1K)"
+    },
+    "Phi-4": {
+      "in": 0.125,
+      "out": 0.5,
+      "cached_in": 0.125,
+      "source": "azure-retail",
+      "meter": "Phi-4-Input/Output Tokens (per 1K); no cached meter published"
     }
   },
   "task": {
@@ -132,13 +132,13 @@
     },
     {
       "name": "Dead laptop (IT)",
-      "question": "Your work laptop is dead \u00e2\u20ac\u201d it won't power on. You need to order a replacement. The self-service portal takes about 4 minutes. The service desk queue averages 20 minutes. Do you use the portal or call the service desk?",
+      "question": "Your work laptop is dead — it won't power on. You need to order a replacement. The self-service portal takes about 4 minutes. The service desk queue averages 20 minutes. Do you use the portal or call the service desk?",
       "options": [
         "PORTAL",
         "SERVICE DESK"
       ],
       "correct": "SERVICE DESK",
-      "why": "The self-service portal needs a working laptop \u00e2\u20ac\u201d the one that is dead."
+      "why": "The self-service portal needs a working laptop — the one that is dead."
     },
     {
       "name": "Moscow shipment (compliance)",
@@ -148,7 +148,7 @@
         "NO"
       ],
       "correct": "NO",
-      "why": "Russia is under export sanctions and encryption hardware is controlled. Shenzhen is a distractor \u00e2\u20ac\u201d only the Moscow leg was asked about."
+      "why": "Russia is under export sanctions and encryption hardware is controlled. Shenzhen is a distractor — only the Moscow leg was asked about."
     }
   ],
   "_aliases_note": "Only used when a model ignores the ANSWER: tag. Lets a known option match its inflections without false positives (e.g. 'driving' yes, 'driveway' no).",
@@ -310,11 +310,11 @@
       "params": {}
     },
     {
-      "id": "phi-4-reasoning",
-      "label": "Phi 4 Reasoning",
-      "deployment": "Phi-4-reasoning",
+      "id": "phi-4",
+      "label": "Phi 4",
+      "deployment": "Phi-4",
       "vendor": "inference",
-      "badge": "single setting",
+      "badge": "no reasoning",
       "params": {}
     },
     {
