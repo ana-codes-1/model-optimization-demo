@@ -1,367 +1,67 @@
 # Model Optimization Demo
 
-One trick question, twenty model configurations, measured in parallel. Pass/fail and token
-cost land on a live bar chart in under twenty seconds.
+A live demo to help you choose the right model for your workload.
 
-The question:
+## The main point
 
-> I want to wash my car. The car wash is 50 meters away. Should I walk or drive?
+**There is no single "best" model. The right choice depends on what you are optimising for.**
 
-The answer is **DRIVE** — the car has to physically be at the car wash. Models fixate on
-"50 meters is close" and confidently tell you to walk.
+Models differ on four things, and you rarely get to maximise all of them at once:
 
-## Why this exists
+- **Cost** — what it costs per 1,000 requests
+- **Tokens** — how much the model uses to answer
+- **Speed** — how long you wait for a response
+- **Accuracy** — whether it gets the answer right
 
-Picking a model by price tier or benchmark leaderboard is guesswork. This measures the
-models you can actually deploy, against a question shaped like the ones you actually ask,
-and shows what each one costs to get it right — or to get it wrong repeatedly.
-
-Six models appear **twice**: once at their cheapest thinking setting, once at their most
-expensive. Pairs sit adjacent in the chart so you compare a model against *itself* and can
-answer the only question that matters: **does more thinking help here?**
-
-Often it does not.
-
-Four more models — MAI Thinking 1, Grok 4.1 Fast, Kimi K2.6 and DeepSeek V4 Flash — sit
-below the pairs as single rows. They expose no thinking knob the API honours, so pairing
-them would be theatre. MAI in particular *accepts* `reasoning_effort` and silently ignores
-it: measured over four runs per setting, "low" averaged more reasoning tokens than "high".
-They are there for cross-vendor comparison, not for the thinking-knob question.
-
-## What a run looks like
-
-The committed sample run, in roster order — each model at its cheap setting, then its
-expensive one:
-
-| Model | Setting | Result | Attempts | Tokens |
-|---|---|---|---|---|
-| Claude Opus 5 | effort low | **PASS** | 1 | **153** |
-| Claude Opus 5 | effort max | **PASS** | 1 | 279 |
-| Claude Haiku 4.5 | thinking off | FAIL | 3 | 360 |
-| Claude Haiku 4.5 | thinking 4k | FAIL | 3 | 954 |
-| GPT-5.4 nano | effort low | FAIL | 3 | 349 |
-| GPT-5.4 nano | effort high | FAIL | 3 | 389 |
-| GPT-5.4 mini | effort low | FAIL | 3 | 380 |
-| GPT-5.4 mini | effort high | **PASS** | 3 | 796 |
-| GPT-5.4 | effort low | FAIL | 3 | 318 |
-| GPT-5.4 | effort high | **PASS** | 1 | 210 |
-| o3 | effort low | FAIL | 3 | 318 |
-| o3 | effort high | **PASS** | 1 | 302 |
-
-Four things fall out of that table:
-
-- **The cheapest row on the board is also correct.** Opus at its *lowest* effort spends 153
-  tokens and gets it right — fewer tokens than any failing row spent being wrong.
-- **More thinking is not a fix.** Haiku spends 2.6x more with thinking on and returns the
-  same wrong answer. Nano's knob moves the cost 11% and changes nothing at all.
-- **Sometimes it is a fix.** GPT-5.4 and mini both flip from fail to pass at high effort.
-  The knob is worth testing; it is not worth assuming.
-- **Watch the attempts column.** `mini-high` passed on its *third* try. A single-shot
-  evaluation would have recorded that as either a pass or a fail depending on luck.
-
-**Results are non-deterministic.** Across runs, `o3-low` and `gpt-low` have both flipped
-pass/fail. That is a finding, not a bug — it is the argument for measuring rather than
-assuming, and for treating any n=1 evaluation with suspicion.
-
-The eight models outside the OpenAI and Anthropic families were added later, so they come
-from a separate run. Four of them are paired the same way the table above is:
-
-| Model | Setting | Result | Attempts | Tokens | Per 1k runs |
-|---|---|---|---|---|---|
-| MAI Thinking 1 | thinking fixed | **PASS** | 1 | 217 | $1.42 |
-| Phi 4 | no reasoning | **PASS** | 1 | **124** | **$0.04** |
-| Grok 4.1 Fast | reasoning on | **PASS** | 1 | 591 | $0.28 |
-| Grok 4.1 Fast | reasoning off | FAIL | 3 | 241 | $0.08 |
-| Kimi K2 | version 2.5 | FAIL | 3 | 1,178 | $3.43 |
-| Kimi K2 | version 2.6 | **PASS** | 2 | 1,863 | $7.81 |
-| DeepSeek V4 | flash | FAIL | 3 | 225 | $0.05 |
-| DeepSeek V4 | pro | **PASS** | 3 | 258 | $0.70 |
-
-**Phi 4 is the punchline.** It is the smallest model on the board, it has no reasoning
-mode at all, and it answered correctly on the first attempt for **four cents per thousand
-runs**. Claude Opus 5 also answered correctly, on the same run, for $2.24 — **fifty-six
-times the price for the same verdict.** If a partner takes one thing away, it is that
-their hardest-sounding question may not need their most expensive model.
-
-**The Grok pair is the most rigorous exhibit.** It is the same model at the same published
-rate, and the only difference is whether reasoning is switched on. On, it is right first
-try; off, it is wrong three times running. Because the model is held constant, nothing
-else can be blamed for the gap. This pair has behaved the same way on every run so far.
-
-**The Kimi and DeepSeek pairs flipped between runs, and you should say so out loud.** In
-an earlier run K2.5 beat K2.6 and Flash beat Pro; in the run above both reversed. Neither
-direction is a property of the models — it is the same non-determinism described above,
-showing up in the place people are most tempted to draw a conclusion from one data point.
-Used honestly it is the strongest argument in the demo: **a single run is not evidence**,
-and a partner picking a model off one comparison is picking off noise.
+This demo measures all four side by side, on the same question, so the trade-offs are
+visible instead of assumed.
 
 ## How it works
 
-```
-browser  ──▶  server.py  ──HTTPS──▶  Azure AI Foundry
-              (stdlib only)          one resource, N deployments
-```
+1. Pick a question (or type your own).
+2. Click **Run**. Every model configuration answers at the same time, all deployed on
+   Azure AI Foundry.
+3. Each row shows a **green bar for pass** or a **red bar for fail**, plus tokens, response
+   time, and cost per 1,000 requests. Click a row to read the model's actual answer.
+4. A model gets up to **three tries**. A cheaper model that needs several attempts to get
+   it right may not be saving you anything. You decide whether that is worth it.
 
-- `server.py` fans all twenty configurations out at once through a `ThreadPoolExecutor`
-  and streams each result over SSE the moment it lands, so bars fill in fastest-first.
-- Scoring is deterministic. The prompt demands a final line of `ANSWER: WALK` or
-  `ANSWER: DRIVE`; the scorer takes the last tag it finds, falling back to an alias table
-  so "driving" counts and "driveway" does not. No judge model.
-- Retry is adaptive. Pass on the first attempt and it stops. Fail and it tries up to three
-  times, accumulating tokens — which is why a stubbornly wrong model looks expensive.
-- Auth is Microsoft Entra, not an API key. There are no secrets in this repo to leak.
+Several models appear twice, once at a **base** setting and once at a **frontier** setting
+(more thinking), so you can see whether extra reasoning actually helps.
 
-Every model generation exposes its thinking knob differently, so `config.json` gives each
-roster row a raw `params` object that is merged straight into the request body:
+## The hack: questions with a hidden catch
 
-```jsonc
-{ "id": "opus-high",  "params": { "thinking": { "type": "adaptive" },
-                                  "output_config": { "effort": "max" } } }
-{ "id": "haiku-high", "params": { "thinking": { "type": "enabled",
-                                  "budget_tokens": 4000 } } }
-{ "id": "o3-high",    "params": { "reasoning_effort": "high" } }
-```
+The questions are built so the obvious answer is the wrong one. The thing you need is the
+thing that is broken or missing, and models that skim the surface get it wrong.
 
-The server knows nothing about what those keys mean. **Adding a model is a config edit,
-not a code change.**
+| Question | What it shows |
+|---|---|
+| **Car wash** — the car wash is 50 meters away, walk or drive? | The car has to be there to get washed. Does more thinking help? |
+| **Dead laptop** — the laptop won't power on; use the self-service portal (4 min) or the service desk (20 min)? | The portal needs a working laptop. Most models miss it. Do you want to optimise for speed or for reasoning? |
+| **Shipping compliance** — can 500 laptops ship to two overseas offices? | Almost every model answers, but one refuses. The "best" model may have guardrails you cannot change, which matters if your business needs to ask these questions. |
 
-## Running it
+You can also add a **custom question**. It has to be a two-way choice, because answers are
+scored automatically with no judge model.
 
-Requires Python 3.8+ (no pip installs) and the Azure CLI, logged in with access to a
-Foundry resource.
+## What to take away
+
+- A bigger or more expensive model is not automatically a better one for your question.
+- More thinking sometimes helps and sometimes only costs more. Test it, don't assume.
+- Results vary from run to run. One run is not evidence, so run it more than once.
+- Check behaviour such as refusals against your own use case, not just accuracy.
+
+## Run it
+
+Requires Python 3.8+ (no installs) and the Azure CLI, signed in with access to a Foundry
+resource.
 
 ```bash
-cp config.example.json config.json     # then set "endpoint" to your resource
+cp config.example.json config.json     # set "endpoint" to your resource
 az login
 python server.py                       # http://localhost:8000
 ```
 
-Edit the `roster` in `config.json` to match your own deployment names.
+Models, questions, and pricing are all set in `config.json`. Adding a model is a config
+edit, not a code change.
 
-### Other entry points
-
-```bash
-python smoke_test.py                   # run from the CLI, no browser
-python verify.py claude-opus-5         # one raw call, complete unfiltered response
-curl localhost:8000/health             # readiness without spending anything
-```
-
-`verify.py` is the honesty check. It prints the exact URL, the exact body, and Azure's raw
-JSON including rate-limit headers — useful when you want to confirm a number rather than
-trust one.
-
-### What the dollar figures mean
-
-Each row shows a cost, and the bar can be scaled by cost or by tokens — the toggle sits
-next to the Run button. Cost is the better default, because a token axis quietly compares
-models whose rates differ by more than 100x: 1,000 nano tokens and 1,000 Opus tokens are
-not the same purchase.
-
-The figure on each row is **per 1,000 runs of the question**, not per run. A single run
-costs a few thousandths of a cent, and nobody can compare `$0.000094` against
-`$0.012345` while talking. At 1,000 runs the same gap reads as **9 cents against $12.35**,
-which is the sentence you actually want to say out loud.
-
-The number is **measured tokens × published rate**. The token counts are real — Azure
-returns them in every response, split into input and output. The rates live in
-`config.json` under `pricing`, in USD per million tokens, and come from three places:
-
-| Models | Rate source | Verifiable? |
-| --- | --- | --- |
-| GPT-5.4, mini, nano, o3, MAI Thinking 1, Grok 4.1 Fast (both), Phi 4 | Azure Retail Prices API, `serviceName eq 'Foundry Models'`, Global SKU | Yes — `python refresh_prices.py` |
-| Kimi K2.5 and K2.6, DeepSeek V4 Flash and Pro | Same feed, but **DataZone** meters — no Global meter is published for these | Partially — the script checks the DataZone rate |
-| Claude Opus 5, Haiku 4.5 | Anthropic's published price list | By eye, at the URL the script prints |
-
-That split is not an oversight. Claude has **no token meter in the Azure feed at all** —
-on Azure it bills as `claude-consumption-units` rather than per token — so there is no
-Microsoft-published per-token rate to look up. Anthropic's list price is the same page the
-Foundry portal links to for those models, and it is the best available answer.
-
-Two smaller caveats, both marked in `config.json` so they are not quietly forgotten. Kimi
-and DeepSeek are *deployed* GlobalStandard but only publish DataZone meters, so their rates
-are the closest published figure rather than an exact one; they carry
-`"source": "azure-retail-datazone"`. And xAI publishes no cached-input meter, so Grok's
-cached rate mirrors its input rate — caching is treated as neutral rather than credited
-with a discount that may not exist.
-
-`refresh_prices.py` re-pulls every Azure rate and diffs it against `config.json`, exiting
-non-zero if anything moved. Run it before a demo if the numbers are going on a slide.
-
-Two things to say out loud if anyone asks how exact these are. Thinking tokens bill as
-**output**, which is several times the input rate — that is precisely why the
-high-reasoning rows stretch so far. And Azure bills **aggregated daily meters, never
-individual requests**, so no per-call invoice exists anywhere to reconcile against. These
-are list-price estimates for comparing models against each other, not an invoice.
-
-### Hosting it
-
-The same `server.py` runs locally and in Azure. It picks its credential automatically:
-if `IDENTITY_ENDPOINT` is set it uses the platform's managed identity, otherwise it falls
-back to whoever is signed in to the Azure CLI. It binds `0.0.0.0` when hosted and
-`127.0.0.1` when not, and honours `PORT` and `AZURE_AI_ENDPOINT`.
-
-Deployment is [`azd`](https://aka.ms/azd) over the Bicep in [`infra/`](infra/). The demo is
-live at **https://model-optimization-demo.azurewebsites.net**.
-
-```bash
-azd auth login
-
-# the azd environment name becomes the hostname: <name>.azurewebsites.net
-azd env new model-optimization-demo
-
-# the Foundry account is referenced, not provisioned - see ADR 0008
-azd env set AZURE_FOUNDRY_ACCOUNT        <account-name>
-azd env set AZURE_FOUNDRY_RESOURCE_GROUP <resource-group>
-
-azd up          # or: make deploy
-```
-
-That provisions a resource group, a Linux App Service plan and web app, Log Analytics and
-App Insights, and a monthly budget with alerts — then zip-deploys the app. There is no
-container image and no registry: the app is standard library only, so App Service runs
-`python server.py` directly.
-
-`azd` also grants the two role assignments the demo needs, through a single shared
-[`role-assignment.bicep`](infra/modules/role-assignment.bicep) module invoked once for the
-web app's identity and once for you. **The Foundry grant is not optional** — that account
-sets `disableLocalAuth=true`, so there is no API key to fall back on, and without the role
-the app starts fine and then 401s on every model call. Granting the same role to the
-signed-in developer is what lets `make dev` reach the real models locally.
-
-The Foundry account itself is *not* provisioned here — it and its fifteen deployments
-predate this repo. [ADR 0008](docs/adr/0008-existing-foundry-account.md) explains why.
-The two `azd env set` values above are deliberately not defaulted in
-`infra/main.bicepparam`: the account name is also the endpoint hostname, and this repo
-keeps the live endpoint out of source, which is the same reason `config.json` is
-gitignored while `config.example.json` carries a placeholder.
-
-Two things that will bite you. **App Service quota is per region**, and this subscription
-has none in `eastus2` or `eastus`; `westus2` works. The app does not have to share a region
-with the model endpoint — a cross-region hop costs a few tens of milliseconds against calls
-that take seconds. And **the plan bills whether or not anyone is using it**:
-
-```bash
-make down       # azd down --purge, between demos
-```
-
-`docs/adr/0007` records why this is App Service rather than the Static Web Apps + Functions
-default in the team standards.
-
-## Adapting it to your own question
-
-The UI has a preset dropdown and editable fields for the question, both answer labels, and
-which one is correct. Because scoring is a regex over a fixed option list, a custom
-question has to be a **two-way choice**. Anything looser would need a judge model, which
-this demo deliberately does not have.
-
-Presets live in `config.json`:
-
-```jsonc
-"task": {
-  "question": "...",
-  "options": ["WALK", "DRIVE"],
-  "correct": "DRIVE",
-  "why": "The car has to physically be at the car wash."
-}
-```
-
-### What makes a good question
-
-The shipped presets share one shape: **the thing you need is the thing that is broken or
-absent.** A dead laptop cannot open the self-service portal that replaces dead laptops; a
-car cannot be washed at a car wash it never travelled to. Surface arithmetic — 4 minutes
-beats 20, 50 meters is walkable — points confidently the wrong way.
-
-That second preset separates models far more sharply than the car wash does. In testing,
-**10 of 12 configurations chose the portal**, most of them three times in a row. The two
-that noticed the laptop was dead were both Claude Opus 5, and the cheaper of the two
-settings caught it for fewer tokens than most models spent being wrong.
-
-The third preset is a different shape and worth having for contrast. It asks whether 500
-laptops with self-encrypting drives can ship to a customer's Moscow subsidiary, and buries
-that inside a larger order that also mentions Shenzhen. Nothing is logically impossible
-here — the model has to know that Russia is under export sanctions, that encryption
-hardware is controlled, and that only the Moscow leg was actually asked about. It tests
-domain knowledge and careful reading rather than a trap, and it scores almost inversely to
-the laptop question. Between the two you can show a partner that "which model is best"
-has no answer independent of what they intend to ask it.
-
-Avoid famous puzzles. Bat-and-ball and the surgeon riddle are in every training set;
-running them here returns every configuration passing on the first attempt, which measures
-memorisation rather than reasoning. The useful test is a question shaped like your own
-domain, where the wrong answer is the plausible one.
-
-## Files
-
-| File | Purpose |
-|---|---|
-| `config.example.json` | Endpoint, task, and the roster. The only file most people edit |
-| `server.py` | Backend: fan-out, all three API transports, scoring, SSE. Standard library only |
-| `index.html` | Frontend: chart and controls. No framework, no build step |
-| `smoke_test.py` | CLI runner |
-| `verify.py` | Single raw call with the full unedited response |
-| `refresh_prices.py` | Re-checks the rates in `config.json` against the live Azure price feed |
-| `deploy-claude.json` | ARM template for deploying Anthropic models to Foundry |
-| `results/` | Every run is archived here as a timestamped JSON file |
-| `infra/` | Bicep for `azd up`: App Service, budget, App Insights, and the Foundry role grants |
-| `azure.yaml` | `azd` project file — one service, `python server.py` on App Service |
-| `Makefile` | The four uniform verbs: `dev`, `test`, `lint`, `deploy` |
-| `docs/` | ADRs and the standards-compliance table |
-| `AGENTS.md`, `.github/skills/`, `.github/agents/` | Team standards, adopted from `eps-demos-template` |
-
-## Team standards
-
-This repo follows the
-[EPS demos template](https://github.com/mcaps-us/eps-demos-template) (Microsoft-internal).
-[`AGENTS.md`](AGENTS.md) and the twelve skills under
-[`.github/skills/`](.github/skills/) are instructions for coding agents working here —
-Copilot reads them before touching anything, so changes arrive shaped like the rest of the
-team's demos.
-
-Where this demo deliberately departs from those standards it says so:
-[ADR 0007](docs/adr/0007-app-service-for-streaming-fan-out.md) for the compute choice,
-[ADR 0008](docs/adr/0008-existing-foundry-account.md) for reusing the Foundry account, and
-the [compliance table](docs/README.md) for the rest — including the two rules it knowingly
-does not meet (no rate limiting, no CI coverage gates) and why.
-
-The org's ACL, JIT, and compliance-inventory policies were **not** imported. They only
-function inside the Microsoft-managed org, and they list team members by alias and email,
-which has no business in a public repository.
-
-## Notes on Foundry
-
-Worth knowing if you are rebuilding this:
-
-- OpenAI and Anthropic models sit behind **one** resource and one auth model, but different
-  paths and api-versions: `/openai/deployments/{name}/chat/completions` versus
-  `/anthropic/v1/messages`. Sending the wrong api-version returns a 404, which is a
-  confusing way to learn this.
-- There is a **third** route. MAI, Phi, Grok, Kimi and DeepSeek are not reachable on the
-  OpenAI path — MAI returns `request_validation_error` there. They use
-  `/models/chat/completions`, where the deployment is named in the **body** as `model`
-  rather than in the URL. The request and response shapes are otherwise OpenAI's, so the
-  parsing is shared.
-- **Reasoning is sometimes a separate deployment, not a parameter.** xAI ships
-  `grok-4-1-fast-reasoning` and `grok-4-1-fast-non-reasoning` as two distinct models that
-  bill against the *same* Grok 4.1 meter. So the cleanest reasoning-on/off comparison in
-  this repo is not a `params` difference at all — it is two roster rows pointing at two
-  deployments, at an identical published rate.
-- **Meter names are not consistent even within one family.** DeepSeek V4 Flash uses
-  `FW Deepseek-v4-Flash Cd In DZ Tokens` (lowercase `v4`, `Cd In`) while V4 Pro uses
-  `FW DeepSeek-V4-Pro Ch Inp DZ Tokens` (capitalised, `Ch Inp`). Do not pattern-match
-  these; look each one up.
-- **Token accounting is not consistent between vendors, and the difference is silent.**
-  xAI reports reasoning tokens *outside* `completion_tokens`, so `total = prompt +
-  completion + reasoning`; OpenAI and MAI report them inside. Deriving output as
-  `max(total - prompt, completion)` is correct for both. Grok has also been observed
-  reporting **more cached tokens than prompt tokens**, which makes the billed-input term
-  go negative unless you clamp it. Both fixes live in `_openai_usage()`.
-- **A model can accept a parameter and ignore it.** `MAI-Thinking-1` takes
-  `reasoning_effort` without error and does nothing with it — measured over four runs per
-  setting, "low" averaged 183 reasoning tokens and "high" averaged 108. Verify a knob
-  moves something before you build a comparison on it.
-- With thinking enabled, Anthropic responses put a `thinking` block **before** the `text`
-  block. Reading `content[0]` will silently give you the wrong thing.
-- Anthropic wants `max_tokens`; OpenAI reasoning models want `max_completion_tokens`.
-- Set the token cap generously. Thinking is billed from the same budget, and a tight cap
-  truncates the answer to nothing.
+Deployment, pricing sources, and engineering notes are in [`docs/`](docs/).
